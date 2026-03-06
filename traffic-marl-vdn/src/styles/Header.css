@@ -1,0 +1,26 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a2639;
+  margin: 0;
+}
+
+.header-time {
+  font-size: 20px;
+  font-weight: 500;
+  color: #4a5568;
+  background: #f7fafc;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+}
