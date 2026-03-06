@@ -73,7 +73,7 @@
 
 .live-control-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: 20px;
 }
 
@@ -81,7 +81,7 @@
   background: #1a2639;
   border-radius: 16px;
   overflow: hidden;
-  height: 400px;
+  height: 500px;
 }
 
 .map-placeholder {
@@ -122,7 +122,7 @@
 }
 
 .control-panel {
-  background: linear-gradient(135deg, #3498db, #2980b9);
+  background: #097cbe;
   border-radius: 16px;
   padding: 30px;
   color: white;
@@ -147,9 +147,9 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 25px;
-  padding: 15px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  /* padding: 15px; */
+  /* background: rgba(255, 255, 255, 0.1); */
+  /* border-radius: 10px; */
 }
 
 .control-label {
@@ -166,32 +166,30 @@
   color: #333;
 }
 
-.control-badge.badge-agent { background: #4ecdc4; color: white; }
+.control-badge.badge-agent { background: #2be453; color: white; }
 .control-badge.badge-police { background: #e74c3c; color: white; }
-.control-badge.badge-fixed { background: #95a5a6; color: white; }
+.control-badge.badge-fixed { background: #43c9c6; color: white; }
 
 .mode-switches {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-bottom: 30px;
+  border-radius: 20px;
 }
 
 .mode-switch {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 15px 20px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid transparent;
-  border-radius: 12px;
+  gap: 10px;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 8px;
   color: white;
-  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
-  width: 100%;
-  text-align: left;
+  transition: transform 0.2s, opacity 0.2s;
+  opacity: 0.8;
 }
 
 .mode-switch:hover {
@@ -199,34 +197,24 @@
 }
 
 .mode-switch.active {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: white;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+.mode-switch.police {
+  background-color: #e53e3e; /* red */
+}
+
+.mode-switch.agent {
+  background-color: #16b53b; /* blue */
+}
+
+.mode-switch.fixed {
+  background-color: #148ed4; /* grayish brown */
 }
 
 .switch-icon {
   font-size: 24px;
-}
-
-.active-phase-info {
-  margin-top: auto;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 12px;
-}
-
-.active-phase-info h4 {
-  font-size: 14px;
-  opacity: 0.8;
-  margin-bottom: 15px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.phase-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .phase-road {
@@ -237,19 +225,44 @@
   font-weight: 500;
 }
 
-.phase-green {
-  color: #2ecc71;
-  font-weight: 700;
+.active-phase-info {
+  margin-top: auto;
+  padding: 5px;
+  border-radius: 50px;
+
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+
+  background: #2ecc71;
+  box-shadow: 0 0 10px #2ecc71, 0 0 15px #2ecc71;
+  animation: greenBeam 0.5s infinite alternate;
 }
 
-.phase-timer {
+/* center lane text */
+.phase-details {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.phase-road {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 8px 16px;
-  border-radius: 30px;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+}
+
+/* glowing animation */
+@keyframes greenBeam {
+  from {
+    box-shadow: 0 0 4px #2ecc71, 0 0 10px #2ecc71;
+  }
+  to {
+    box-shadow: 0 0 8px #2ecc71, 0 0 15px #2ecc71;
+  }
 }
 
 /* Section 2: Lane Specifics */
@@ -635,4 +648,85 @@
   font-size: 16px;
   position: absolute;
   right: 20px;
+}
+
+/* Junction Map Styles */
+.map-container {
+  background: #1a2639;
+  border-radius: 16px;
+  overflow: hidden;
+  height: 400px;
+  position: relative;
+}
+
+.junction-map {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.junction-map:hover {
+  transform: scale(1.02);
+}
+
+/* Map overlay for junction info */
+.map-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  color: white;
+  padding: 20px;
+  pointer-events: none;
+}
+
+.map-overlay p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.map-overlay small {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+/* Map placeholder (fallback) */
+.map-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+}
+
+.map-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.8;
+}
+
+.map-placeholder p {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.map-placeholder small {
+  opacity: 0.7;
+}
+
+.map-coordinates {
+  margin-top: 30px;
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 16px;
+  border-radius: 20px;
 }

@@ -42,8 +42,8 @@ ChartJS.register(
 
 // Junction configuration
 const JUNCTION_CONFIG = {
-  'J1': {
-    id: 'J1',
+  'J4': {
+    id: 'J4',
     name: 'SLIIT Campus',
     location: 'Malabe',
     type: 'three_way',
@@ -63,10 +63,10 @@ const JUNCTION_CONFIG = {
         currentSignal: 'green'
       },
       { 
-        id: 'north', 
-        name: 'Kaduwela Road', 
-        direction: 'North',
-        signals: ['red', 'yellow', 'green'],
+        id: 'pedestrian', 
+        name: 'Pedestrian Crossing', 
+        direction: 'Crossing',
+        signals: ['red', 'green'],
         currentSignal: 'red'
       }
     ],
@@ -76,8 +76,8 @@ const JUNCTION_CONFIG = {
       north: 'Kaduwela Road'
     }
   },
-  'J4': {
-    id: 'J4',
+  'J1': {
+    id: 'J1',
     name: 'Weliwita Junction',
     location: 'Kaduwela',
     type: 'pedestrian',
@@ -103,13 +103,6 @@ const JUNCTION_CONFIG = {
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'yellow'
       },
-      { 
-        id: 'pedestrian', 
-        name: 'Pedestrian Crossing', 
-        direction: 'Crossing',
-        signals: ['red', 'green'],
-        currentSignal: 'red'
-      }
     ],
     roadNames: {
       west: 'New Kandy Road',
@@ -174,7 +167,7 @@ const JunctionControl = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   // Get current junction config
-  const junction = JUNCTION_CONFIG[junctionId] || JUNCTION_CONFIG['J1'];
+  const junction = JUNCTION_CONFIG[junctionId] || JUNCTION_CONFIG['J4'];
   
   // List of all junctions for dropdown
   const junctionList = Object.values(JUNCTION_CONFIG);
@@ -234,9 +227,9 @@ const JunctionControl = () => {
     setLaneData(mockLaneData);
     
     // Set active green lane based on junction type
-    if (junctionId === 'J1') {
+    if (junctionId === 'J4') {
       setActiveGreenLane('east');
-    } else if (junctionId === 'J4') {
+    } else if (junctionId === 'J1') {
       setActiveGreenLane('east');
     } else {
       setActiveGreenLane('north');
@@ -392,7 +385,7 @@ const JunctionControl = () => {
           <div className="live-control-row">
             {/* Left - SUMO Map (placeholder) */}
             <div className="map-container">
-              <div className="map-placeholder">
+              {/* <div className="map-placeholder">
                 <FaMapMarkedAlt className="map-icon" />
                 <p>SUMO Simulation View</p>
                 <small>Junction {junction.name}</small>
@@ -400,7 +393,56 @@ const JunctionControl = () => {
                   <span>Lat: 6.9271° N</span>
                   <span>Lng: 79.9612° E</span>
                 </div>
-              </div>
+              </div> */}
+
+              {junctionId === 'J1' && (
+                <img 
+                  src="/Weliwita.png" 
+                  alt="SLIIT Campus Junction Map"
+                  className="junction-map"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/images/maps/placeholder-map.png';
+                  }}
+                />
+              )}
+              
+              {junctionId === 'J4' && (
+                <img 
+                  src="/Sliit.png" 
+                  alt="Weliwita Junction Map"
+                  className="junction-map"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/images/maps/placeholder-map.png';
+                  }}
+                />
+              )}
+              
+              {junctionId === 'J8' && (
+                <img 
+                  src="/Kaduwela.png" 
+                  alt="Kaduwela Junction Map"
+                  className="junction-map"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/images/maps/placeholder-map.png';
+                  }}
+                />
+              )}
+              
+              {/* Fallback if no junction-specific map or error */}
+              {(!junctionId || ![ 'J1', 'J4', 'J8' ].includes(junctionId)) && (
+                <div className="map-placeholder">
+                  <FaMapMarkedAlt className="map-icon" />
+                  <p>SUMO Simulation View</p>
+                  <small>Junction {junction.name}</small>
+                  <div className="map-coordinates">
+                    <span>Lat: 6.9271° N</span>
+                    <span>Lng: 79.9612° E</span>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Right - Control Panel */}
@@ -419,15 +461,15 @@ const JunctionControl = () => {
               
               <div className="mode-switches">
                 <button 
-                  className={`mode-switch ${controlMode === 'police' ? 'active' : ''}`}
+                  className={`mode-switch police ${controlMode === 'police' ? 'active' : ''}`}
                   onClick={() => handleModeSwitch('police')}
                 >
                   <span className="switch-icon">👮</span>
-                  <span className="switch-text">Switch to Policemen Mode</span>
+                  <span className="switch-text">Switch to Police Office Mode</span>
                 </button>
                 
                 <button 
-                  className={`mode-switch ${controlMode === 'agent' ? 'active' : ''}`}
+                  className={`mode-switch agent ${controlMode === 'agent' ? 'active' : ''}`}
                   onClick={() => handleModeSwitch('agent')}
                 >
                   <span className="switch-icon">🤖</span>
@@ -435,7 +477,7 @@ const JunctionControl = () => {
                 </button>
                 
                 <button 
-                  className={`mode-switch ${controlMode === 'fixed' ? 'active' : ''}`}
+                  className={`mode-switch fixed ${controlMode === 'fixed' ? 'active' : ''}`}
                   onClick={() => handleModeSwitch('fixed')}
                 >
                   <span className="switch-icon">⏱️</span>
@@ -445,13 +487,9 @@ const JunctionControl = () => {
               
               {/* Active Phase Information */}
               <div className="active-phase-info">
-                <h4>Current Phase Information</h4>
                 <div className="phase-details">
                   <div className="phase-road">
-                    <FaRoad /> {getActiveGreenLaneName()} - <span className="phase-green">GREEN</span>
-                  </div>
-                  <div className="phase-timer">
-                    <FaClock /> Time remaining: <strong>{timeRemaining}s</strong>
+                    <FaRoad /> {getActiveGreenLaneName()}
                   </div>
                 </div>
               </div>
