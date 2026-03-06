@@ -465,7 +465,7 @@ const JunctionControl = () => {
                   onClick={() => handleModeSwitch('police')}
                 >
                   <span className="switch-icon">👮</span>
-                  <span className="switch-text">Switch to Police Office Mode</span>
+                  <span className="switch-text">Switch to Police Officer Mode</span>
                 </button>
                 
                 <button 

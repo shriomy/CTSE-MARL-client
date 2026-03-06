@@ -15,7 +15,7 @@ const Sidebar = ({ systemStatus }) => {
   const navItems = [
     { path: '/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard' },
     { path: '/map', icon: <FaMapMarkedAlt />, label: 'View Map' },
-    { path: '/junction-control', icon: <FaTrafficLight />, label: 'Junction Control' },
+    { path: '/junction-control/J4', icon: <FaTrafficLight />, label: 'Junction Control' },
     { path: '/analytics', icon: <FaChartLine />, label: 'System Analytics' },
     { path: '/pedestrians', icon: <FaWalking />, label: 'Pedestrians' },
     { path: '/emergency', icon: <FaAmbulance />, label: 'Emergency Vehicles' }
