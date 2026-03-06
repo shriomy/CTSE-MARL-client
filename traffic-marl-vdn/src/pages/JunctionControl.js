@@ -84,21 +84,21 @@ const JUNCTION_CONFIG = {
     lanes: [
       { 
         id: 'west', 
-        name: 'New Kandy Road', 
+        name: 'Kaduwela Road', 
         direction: 'West',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
       },
       { 
         id: 'north', 
-        name: 'Weliwita Road', 
+        name: 'New Kandy Road', 
         direction: 'North',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
       },
       { 
         id: 'east', 
-        name: 'Kaduwela Road', 
+        name: 'Weliwita Road', 
         direction: 'East',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'yellow'
@@ -118,28 +118,28 @@ const JUNCTION_CONFIG = {
     lanes: [
       { 
         id: 'north', 
-        name: 'Kaduwela Road', 
+        name: 'New Kandy Road', 
         direction: 'North',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'green'
       },
       { 
         id: 'east', 
-        name: 'New Kandy Road', 
+        name: 'Awissawella Road', 
         direction: 'East',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
       },
       { 
         id: 'south', 
-        name: 'Awissawella Road', 
+        name: 'Malabe Road', 
         direction: 'South',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
       },
       { 
         id: 'west', 
-        name: 'Malabe Road', 
+        name: 'Kaduwela Road', 
         direction: 'West',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
@@ -160,11 +160,35 @@ const JunctionControl = () => {
   const { data, isConnected, sendMessage } = useWebSocket();
   
   const [controlMode, setControlMode] = useState('agent'); // 'agent', 'police', 'fixed'
-  const [junctionData, setJunctionData] = useState(null);
   const [laneData, setLaneData] = useState({});
-  const [timeRemaining, setTimeRemaining] = useState(18);
   const [activeGreenLane, setActiveGreenLane] = useState('north');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const MODE_TO_SERVER = {
+    agent: 'marl',
+    police: 'manual',
+    fixed: 'fixed'
+  };
+
+  const SERVER_TO_MODE = {
+    marl: 'agent',
+    manual: 'police',
+    fixed: 'fixed'
+  };
+
+  const laneToAction = {
+    west: 0,
+    north: 1,
+    east: 2,
+    south: 3
+  };
+
+  const actionToLane = {
+    0: 'west',
+    1: 'north',
+    2: 'east',
+    3: 'south'
+  };
   
   // Get current junction config
   const junction = JUNCTION_CONFIG[junctionId] || JUNCTION_CONFIG['J4'];
@@ -172,9 +196,8 @@ const JunctionControl = () => {
   // List of all junctions for dropdown
   const junctionList = Object.values(JUNCTION_CONFIG);
   
-  // Mock data for demonstration (replace with real data from WebSocket)
+  // Seed fallback lane stats (kept as baseline when backend does not provide lane-level stats).
   useEffect(() => {
-    // Simulate real-time data updates
     const mockLaneData = {
       west: {
         queueLength: 12,
@@ -234,24 +257,7 @@ const JunctionControl = () => {
     } else {
       setActiveGreenLane('north');
     }
-    
-    // Simulate signal changes
-    const interval = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          // Switch to next lane
-          const lanes = junction.lanes.filter(l => l.id !== 'pedestrian');
-          const currentIndex = lanes.findIndex(l => l.id === activeGreenLane);
-          const nextIndex = (currentIndex + 1) % lanes.length;
-          setActiveGreenLane(lanes[nextIndex].id);
-          return 18;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [junctionId, activeGreenLane, junction.lanes]);
+  }, [junctionId]);
   
   // Update lane signals based on active green
   useEffect(() => {
@@ -269,14 +275,70 @@ const JunctionControl = () => {
       return updated;
     });
   }, [activeGreenLane, junction.lanes]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      return;
+    }
+    sendMessage({ type: 'get_runtime_state' });
+  }, [isConnected, junctionId, sendMessage]);
+
+  useEffect(() => {
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+
+    if (data.type === 'mode_update' && data.data?.junction_modes) {
+      const serverMode = data.data.junction_modes[junctionId];
+      if (serverMode && SERVER_TO_MODE[serverMode]) {
+        setControlMode(SERVER_TO_MODE[serverMode]);
+      }
+    }
+
+    if (data.type === 'traffic_update' && data.data?.actions) {
+      if (data.data?.modes) {
+        const modeForJunction = data.data.modes[junctionId];
+        if (modeForJunction && SERVER_TO_MODE[modeForJunction]) {
+          setControlMode(SERVER_TO_MODE[modeForJunction]);
+        }
+      }
+      const action = data.data.actions[junctionId];
+      const lane = actionToLane[action];
+      if (lane) {
+        setActiveGreenLane(lane);
+      }
+    }
+  }, [data, junctionId]);
   
   const handleModeSwitch = (mode) => {
     setControlMode(mode);
     if (isConnected) {
       sendMessage({
-        type: 'control_mode_change',
-        junction: junctionId,
-        mode: mode
+        type: 'set_junction_mode',
+        junction_id: junctionId,
+        mode: MODE_TO_SERVER[mode] || 'marl'
+      });
+    }
+  };
+
+  const handlePoliceLaneClick = (laneId) => {
+    const action = laneToAction[laneId];
+    if (action === undefined) {
+      return;
+    }
+
+    setActiveGreenLane(laneId);
+
+    if (isConnected) {
+      sendMessage({
+        type: 'set_manual_action',
+        junction_id: junctionId,
+        action
+      });
+      sendMessage({
+        type: 'set_junction_mode',
+        junction_id: junctionId,
+        mode: 'manual'
       });
     }
   };
@@ -299,6 +361,10 @@ const JunctionControl = () => {
     const lane = junction.lanes.find(l => l.id === activeGreenLane);
     return lane ? lane.name : 'Unknown';
   };
+
+  const policeSelectableLanes = junction.lanes.filter(
+    lane => lane.id !== 'pedestrian' && laneToAction[lane.id] !== undefined
+  );
   
   // Chart data for wait time trends
   const waitTimeChartData = {
@@ -496,6 +562,32 @@ const JunctionControl = () => {
             </div>
           </div>
         </div>
+
+        {controlMode === 'police' && (
+          <div className="police-lane-command-section">
+            <h2 className="section-title">
+              <FaRoad /> Police Green Commands
+            </h2>
+            <div className="command-hint">
+              <span className="green-command-cursor" aria-hidden="true">➤</span>
+              Click a lane to give GREEN signal at this junction.
+            </div>
+            <div className="police-lane-command-grid">
+              {policeSelectableLanes.map(lane => (
+                <button
+                  key={lane.id}
+                  className={`police-lane-command-btn ${lane.id === activeGreenLane ? 'active' : ''}`}
+                  onClick={() => handlePoliceLaneClick(lane.id)}
+                  type="button"
+                >
+                  <span className="lane-direction-chip">{lane.direction}</span>
+                  <span className="lane-command-name">{lane.name}</span>
+                  {lane.id === activeGreenLane && <span className="lane-green-indicator">GREEN</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* SECTION 2: Lane Specifics */}
         <div className="lane-specifics-section">

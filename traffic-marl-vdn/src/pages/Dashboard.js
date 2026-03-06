@@ -9,9 +9,10 @@ import QueueCard from '../components/dashboard/QueueCard';
 import LiveSummary from '../components/dashboard/LiveSummary';
 
 const Dashboard = () => {
-  const { data, isConnected } = useWebSocket();
+  const { data, isConnected, sendMessage } = useWebSocket();
   const [junctionData, setJunctionData] = useState({});
   const [queueData, setQueueData] = useState({});
+  const [networkMode, setNetworkMode] = useState('marl');
   const [summaryData, setSummaryData] = useState({
     accidents: 0,
     emergencyVehicles: 0,
@@ -19,19 +20,81 @@ const Dashboard = () => {
     trafficLevel: 'low'
   });
 
+  const getModeLabel = (mode) => {
+    if (mode === 'manual') return 'Police Officer';
+    if (mode === 'fixed') return 'Fixed Time';
+    if (mode === 'marl') return 'MARL Agent';
+    return 'Mixed';
+  };
+
+  const updateJunctionModes = (modes) => {
+    setJunctionData(prev => {
+      const next = { ...prev };
+      Object.entries(modes || {}).forEach(([junctionId, mode]) => {
+        next[junctionId] = {
+          ...(next[junctionId] || {}),
+          controlMode: mode
+        };
+      });
+      return next;
+    });
+  };
+
+  const handleGlobalModeSwitch = (mode) => {
+    setNetworkMode(mode);
+    if (!isConnected) {
+      return;
+    }
+
+    sendMessage({
+      type: 'set_global_mode',
+      mode
+    });
+  };
+
+  useEffect(() => {
+    if (!isConnected) {
+      return;
+    }
+    sendMessage({ type: 'get_runtime_state' });
+  }, [isConnected, sendMessage]);
+
   useEffect(() => {
     if (data) {
-      // Process junction data from WebSocket
+      if (data.type === 'mode_update') {
+        const modePayload = data.data || {};
+        if (modePayload.global_mode) {
+          setNetworkMode(modePayload.global_mode);
+        }
+        if (modePayload.junction_modes) {
+          updateJunctionModes(modePayload.junction_modes);
+        }
+      }
+
+      if (data.type === 'traffic_update') {
+        const packet = data.data || {};
+
+        if (packet.modes) {
+          updateJunctionModes(packet.modes);
+        }
+
+        if (typeof packet.vehicle_count === 'number' || typeof packet.avg_speed === 'number') {
+          setSummaryData(prev => ({
+            ...prev,
+            totalVehicles: typeof packet.vehicle_count === 'number' ? packet.vehicle_count : prev.totalVehicles,
+            avgSpeed: typeof packet.avg_speed === 'number' ? packet.avg_speed : prev.avgSpeed,
+            reward: typeof packet.reward === 'number' ? packet.reward : prev.reward
+          }));
+        }
+      }
+
+      // Backward compatibility payloads
       if (data.agents) {
         setJunctionData(data.agents);
       }
-      
-      // Process queue data
       if (data.queueData) {
         setQueueData(data.queueData);
       }
-      
-      // Update summary
       if (data.summary) {
         setSummaryData(data.summary);
       }
@@ -77,12 +140,12 @@ const Dashboard = () => {
       
       const demoQueueData = {
         'J1': {
-          lanes: ['west', 'east'],
-          values: [4, 20]
-        },
-        'J4': {
           lanes: ['west', 'north', 'east'],
           values: [6, 12, 8]
+        },
+        'J4': {
+          lanes: ['west', 'east'],
+          values: [4, 20]
         },
         'J8': {
           lanes: ['north', 'east', 'south', 'west'],
@@ -106,7 +169,33 @@ const Dashboard = () => {
       {/* Current Traffic Density Section */}
       <div className="section-header">
         <h2 className="section-title">Current Traffic Density</h2>
-        <span className="section-subtitle">Real-time monitoring of all active junctions</span>
+        <div className="network-control-wrap">
+          <span className="network-control-label">Network Control:</span>
+          <div className="network-mode-switches">
+            <button
+              className={`network-mode-btn ${networkMode === 'marl' ? 'active marl' : ''}`}
+              onClick={() => handleGlobalModeSwitch('marl')}
+              type="button"
+            >
+              MARL
+            </button>
+            <button
+              className={`network-mode-btn ${networkMode === 'manual' ? 'active manual' : ''}`}
+              onClick={() => handleGlobalModeSwitch('manual')}
+              type="button"
+            >
+              Police
+            </button>
+            <button
+              className={`network-mode-btn ${networkMode === 'fixed' ? 'active fixed' : ''}`}
+              onClick={() => handleGlobalModeSwitch('fixed')}
+              type="button"
+            >
+              Fixed
+            </button>
+          </div>
+          <span className="network-mode-text">{getModeLabel(networkMode)}</span>
+        </div>
       </div>
 
       <div className="junctions-grid">

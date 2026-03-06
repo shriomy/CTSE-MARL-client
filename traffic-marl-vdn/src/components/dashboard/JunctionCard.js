@@ -1,6 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const JunctionCard = ({ junction, data }) => {
+  const navigate = useNavigate();
+
   const {
     controlMode = 'marl',
     vehiclesWaiting = 0,
@@ -30,8 +33,26 @@ const JunctionCard = ({ junction, data }) => {
     }
   };
 
+  const openJunctionControl = () => {
+    navigate(`/junction-control/${junction.id}`);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openJunctionControl();
+    }
+  };
+
   return (
-    <div className="junction-card">
+    <div
+      className="junction-card clickable"
+      onClick={openJunctionControl}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${junction.name} control page`}
+    >
       <div className="junction-header">
         <span className="junction-name">{junction.name}</span>
         <span className={`traffic-status ${trafficLevel}`}>

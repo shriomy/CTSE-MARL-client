@@ -270,6 +270,107 @@
   margin-bottom: 40px;
 }
 
+.police-lane-command-section {
+  margin-bottom: 30px;
+  background: #ffffff;
+  border: 1px solid #d8f3dc;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 6px 18px rgba(46, 204, 113, 0.12);
+}
+
+.command-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #1f3d2d;
+  margin-bottom: 14px;
+}
+
+.green-command-cursor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2ecc71;
+  color: #ffffff;
+  font-size: 14px;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.8);
+  animation: greenCommandPulse 0.9s infinite alternate;
+}
+
+.police-lane-command-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.police-lane-command-btn {
+  border: 1px solid #d2d6dc;
+  background: #f9fafb;
+  color: #1f2937;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.police-lane-command-btn:hover {
+  border-color: #2ecc71;
+  background: #f0fff6;
+  transform: translateY(-1px);
+}
+
+.police-lane-command-btn.active {
+  border-color: #2ecc71;
+  background: #e8fff2;
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
+}
+
+.lane-direction-chip {
+  min-width: 56px;
+  height: 28px;
+  border-radius: 20px;
+  background: #1f2937;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lane-command-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lane-green-indicator {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f5132;
+  background: #b7f5cd;
+  border-radius: 12px;
+  padding: 3px 8px;
+}
+
+@keyframes greenCommandPulse {
+  from {
+    box-shadow: 0 0 4px rgba(46, 204, 113, 0.6);
+  }
+  to {
+    box-shadow: 0 0 12px rgba(46, 204, 113, 0.95);
+  }
+}
+
 .lane-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));

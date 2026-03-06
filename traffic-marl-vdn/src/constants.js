@@ -1,21 +1,21 @@
 // Junction configurations
 export const JUNCTIONS = [
   {
-    id: 'J1',
+    id: 'J4',
     name: 'SLIIT Junction',
     location: 'Malabe',
-    type: 'three_way',
-    lanes: ['west', 'east'], // E00, -E2, -E3 directions
+    type: 'pedestrian',
+    lanes: ['west', 'east'],
     chips: ['W', 'E']
   },
   {
-    id: 'J4',
+    id: 'J1',
     name: 'Weliwita Junction',
     location: 'Kaduwela',
-    type: 'pedestrian',
-    lanes: ['west', 'north', 'east'],
+    type: 'three_way',
+    lanes: ['west', 'north', 'east'], // E00, -E2, -E3 directions
     chips: ['W', 'N', 'E']
-  },
+  }, 
   {
     id: 'J8',
     name: 'Kaduwela Junction',
