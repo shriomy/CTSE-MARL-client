@@ -19,6 +19,26 @@ export const WebSocketProvider = ({ children }) => {
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef(null);
 
+  const scheduleReconnect = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    reconnectAttemptsRef.current += 1;
+    const attempt = reconnectAttemptsRef.current;
+
+    // Keep trying forever with bounded backoff so the app auto-recovers
+    // when backend starts after the frontend.
+    const baseDelay = WS_CONFIG.reconnectInterval || 3000;
+    const delay = Math.min(baseDelay * Math.max(1, Math.floor(attempt / 2)), 15000);
+    console.log(`Reconnecting... Attempt ${attempt} (in ${delay}ms)`);
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      connect();
+    }, delay);
+  };
+
   const connect = () => {
     try {
       wsRef.current = new WebSocket(WS_CONFIG.url);
@@ -42,17 +62,8 @@ export const WebSocketProvider = ({ children }) => {
       wsRef.current.onclose = () => {
         console.log('WebSocket disconnected');
         setIsConnected(false);
-        
-        // Attempt to reconnect
-        if (reconnectAttemptsRef.current < WS_CONFIG.maxReconnectAttempts) {
-          reconnectAttemptsRef.current++;
-          console.log(`Reconnecting... Attempt ${reconnectAttemptsRef.current}`);
-          
-          reconnectTimeoutRef.current = setTimeout(
-            connect, 
-            WS_CONFIG.reconnectInterval
-          );
-        }
+
+        scheduleReconnect();
       };
 
       wsRef.current.onerror = (err) => {

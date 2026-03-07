@@ -20,7 +20,7 @@ const Header = () => {
     switch(path) {
       case '/dashboard': return 'Dashboard';
       case '/map': return 'View Map';
-      case '/junction-control': return 'Junction Control';
+      case '/junction-control/': return 'Junction Control';
       case '/analytics': return 'System Analytics';
       case '/pedestrians': return 'Pedestrian Monitoring';
       case '/emergency': return 'Emergency Vehicle Tracking';

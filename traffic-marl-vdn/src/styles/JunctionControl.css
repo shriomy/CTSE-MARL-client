@@ -209,15 +209,15 @@
 }
 
 .mode-switch.police {
-  background-color: #e53e3e; /* red */
+  background-color: #ed4f16; /* red */
 }
 
 .mode-switch.agent {
-  background-color: #16b53b; /* blue */
+  background-color: #0bd534; /* blue */
 }
 
 .mode-switch.fixed {
-  background-color: #148ed4; /* grayish brown */
+  background-color: #04a3dc; /* grayish brown */
 }
 
 .switch-icon {

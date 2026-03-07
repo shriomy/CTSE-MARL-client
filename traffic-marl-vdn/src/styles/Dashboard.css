@@ -160,9 +160,9 @@
   color: white;
 }
 
-.control-badge.marl { background: #4ecdc4; }
-.control-badge.police { background: #e74c3c; }
-.control-badge.fixed { background: #95a5a6; }
+.control-badge.marl { background: #0bd534; }
+.control-badge.police { background: #ed4f16; }
+.control-badge.fixed { background: #04a3dc; }
 
 .stats-grid {
   display: grid;
@@ -238,14 +238,14 @@
   color: white;
 }
 
-.lane-chip.signal-red { background: #e74c3c; }
-.lane-chip.signal-yellow { background: #f39c12; color: #1a2639; }
-.lane-chip.signal-green { background: #2ecc71; }
+.lane-chip.signal-red { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+.lane-chip.signal-yellow { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
+.lane-chip.signal-green { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
 
-.lane-chip.west { background: #FF6B6B; }
-.lane-chip.north { background: #4ECDC4; }
-.lane-chip.east { background: #FFD166; }
-.lane-chip.south { background: #06D6A0; }
+.lane-chip.west { background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%); }
+.lane-chip.north { background: linear-gradient(135deg, #4ECDC4 0%, #7FD8D0 100%); }
+.lane-chip.east { background: linear-gradient(135deg, #FFD166 0%, #FFE1A8 100%); }
+.lane-chip.south { background: linear-gradient(135deg, #06D6A0 0%, #4AE8C4 100%); }
 
 .queue-item {
   margin-bottom: 15px;
@@ -270,7 +270,7 @@
 .queue-bar-container {
   height: 22px;
   background: #edf2f7;
-  border-radius: 5px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -280,9 +280,9 @@
   transition: width 0.5s ease;
 }
 
-.queue-bar.low { background: #2ecc71; }
-.queue-bar.medium { background: #f39c12; }
-.queue-bar.high { background: #e74c3c; }
+.queue-bar.low { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
+.queue-bar.medium { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
+.queue-bar.high { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
 
 /* Live Summary Cards */
 .summary-grid {
