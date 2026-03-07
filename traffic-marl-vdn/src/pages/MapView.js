@@ -70,14 +70,14 @@ const MapView = () => {
           <button className="map-control-btn" onClick={handleResetZoom} title="Reset Zoom">
             <FaCrosshairs />
           </button>
-          <a 
+          {/* <a 
             href="/Map.png" 
             download="marl-traffic-full-map.png"
             className="map-control-btn"
             title="Download Map"
           >
             <FaDownload />
-          </a>
+          </a> */}
         </div>
         <div className="header-status">
           <span className={`connection-dot ${isConnected ? 'connected' : 'disconnected'}`}></span>
@@ -107,10 +107,10 @@ const MapView = () => {
           
           {/* Interactive Junction Overlays */}
           <div className="junction-overlays">
-            {/* J1 - SLIIT Campus */}
+            {/* J4 - SLIIT Campus */}
             <div 
-              className="junction-marker j1"
-              onClick={() => handleJunctionClick('J1')}
+              className="junction-marker j4"
+              onClick={() => handleJunctionClick('J4')}
               title="SLIIT Campus Junction"
             >
               <div className="marker-pulse"></div>
@@ -118,10 +118,10 @@ const MapView = () => {
               <span className="marker-label">SLIIT</span>
             </div>
             
-            {/* J4 - Weliwita Junction */}
+            {/* J1 - Weliwita Junction */}
             <div 
-              className="junction-marker j4"
-              onClick={() => handleJunctionClick('J4')}
+              className="junction-marker j1"
+              onClick={() => handleJunctionClick('J1')}
               title="Weliwita Junction"
             >
               <div className="marker-pulse"></div>
@@ -156,7 +156,7 @@ const MapView = () => {
       )}
       
       {/* Map Legend */}
-      <div className="map-legend">
+      {/* <div className="map-legend">
         <h4>Map Legend</h4>
         <div className="legend-items">
           <div className="legend-item">
@@ -176,7 +176,7 @@ const MapView = () => {
             <span>Emergency Route</span>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

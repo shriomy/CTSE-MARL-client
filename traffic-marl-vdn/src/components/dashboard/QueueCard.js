@@ -1,8 +1,41 @@
 import React from 'react';
 
+const LANE_NAME_BY_JUNCTION = {
+  J4: {
+    west: 'Malabe Road',
+    east: 'New Kandy Road',
+  },
+  J1: {
+    west: 'Kaduwela Road',
+    north: 'Weliwita Road',
+    east: 'New Kandy Road',
+  },
+  J8: {
+    north: 'Kaduwela Road',
+    east: 'New Kandy Road',
+    south: 'Awissawella Road',
+    west: 'Malabe Road',
+  },
+};
+
+const DIRECTION_LABEL = {
+  north: 'North',
+  east: 'East',
+  south: 'South',
+  west: 'West',
+};
+
 const QueueCard = ({ junction, queueData }) => {
   const lanes = junction.lanes || [];
   const values = queueData?.values || lanes.map(() => Math.floor(Math.random() * 20));
+  const signalByLane = queueData?.signalByLane || {};
+
+  const getLaneDisplayName = (lane) => {
+    const laneKey = String(lane || '').toLowerCase();
+    const roadName = LANE_NAME_BY_JUNCTION[junction.id]?.[laneKey] || laneKey.toUpperCase();
+    const direction = DIRECTION_LABEL[laneKey] || laneKey.toUpperCase();
+    return `${roadName} (${direction})`;
+  };
   
   const getQueueColor = (value) => {
     if (value > 15) return 'high';
@@ -18,8 +51,8 @@ const QueueCard = ({ junction, queueData }) => {
           {junction.chips?.map((chip, index) => (
             <div 
               key={index} 
-              className={`lane-chip ${junction.lanes[index]}`}
-              title={junction.lanes[index]}
+              className={`lane-chip signal-${signalByLane[junction.lanes[index]] || 'red'}`}
+              title={`${getLaneDisplayName(junction.lanes[index])} signal: ${(signalByLane[junction.lanes[index]] || 'red').toUpperCase()}`}
             >
               {chip}
             </div>
@@ -36,7 +69,7 @@ const QueueCard = ({ junction, queueData }) => {
           return (
             <div key={lane} className="queue-item">
               <div className="queue-item-header">
-                <span className="queue-lane">{lane.toUpperCase()}</span>
+                <span className="queue-lane">{getLaneDisplayName(lane)}</span>
                 <span className="queue-count">{value}</span>
               </div>
               <div className="queue-bar-container">

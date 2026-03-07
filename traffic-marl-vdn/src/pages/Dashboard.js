@@ -40,6 +40,110 @@ const Dashboard = () => {
     });
   };
 
+  const queueToTrafficLevel = (queueValue) => {
+    if (queueValue >= 70) return 'high';
+    if (queueValue >= 35) return 'medium';
+    return 'low';
+  };
+
+  const updateFromJunctionLive = (junctionLive, avgSpeed) => {
+    if (!junctionLive || typeof junctionLive !== 'object') {
+      return;
+    }
+
+    setJunctionData(prev => {
+      const next = { ...prev };
+      Object.entries(junctionLive).forEach(([junctionId, metrics]) => {
+        const queue = Number(metrics?.vehicles_waiting || 0);
+        const density = Number(metrics?.vehicle_density || 0);
+        const wait = Number(metrics?.avg_wait_time || 0);
+        const ped = Number(metrics?.pedestrians || 0);
+        const emergency = Number(metrics?.emergency || 0);
+
+        next[junctionId] = {
+          ...(next[junctionId] || {}),
+          vehiclesWaiting: Math.round(queue),
+          vehicleDensity: Math.max(0, Math.min(1, density)),
+          avgWaitTime: Number(wait.toFixed(1)),
+          pedestrians: ped,
+          emergencyVehicles: emergency,
+          accidents: 0,
+          trafficLevel: queueToTrafficLevel(queue),
+          avgSpeed: typeof avgSpeed === 'number' ? avgSpeed : (next[junctionId]?.avgSpeed || 0),
+        };
+      });
+      return next;
+    });
+
+    setQueueData(prev => {
+      const next = { ...prev };
+      JUNCTIONS.forEach(j => {
+        const laneCount = j.lanes.length;
+        const laneValues = Array.isArray(junctionLive[j.id]?.lane_counts)
+          ? junctionLive[j.id].lane_counts.slice(0, laneCount)
+          : [];
+        while (laneValues.length < laneCount) {
+          laneValues.push(0);
+        }
+
+        next[j.id] = {
+          lanes: [...j.lanes],
+          values: laneValues,
+        };
+      });
+      return next;
+    });
+
+    const totalEmergency = Object.values(junctionLive).reduce(
+      (acc, m) => acc + Number(m?.emergency || 0),
+      0
+    );
+
+    const avgQueueAcrossJunctions = Object.values(junctionLive).length
+      ? Object.values(junctionLive).reduce((acc, m) => acc + Number(m?.vehicles_waiting || 0), 0)
+          / Object.values(junctionLive).length
+      : 0;
+
+    setSummaryData(prev => ({
+      ...prev,
+      emergencyVehicles: Math.round(totalEmergency),
+      trafficLevel: queueToTrafficLevel(avgQueueAcrossJunctions),
+      avgSpeed: typeof avgSpeed === 'number' ? avgSpeed : prev.avgSpeed,
+    }));
+  };
+
+  const buildSignalByLane = (junctionId, action, stepMeta, lanes) => {
+    const out = {};
+    lanes.forEach(l => {
+      out[l] = 'red';
+    });
+
+    const isYellow = Number(stepMeta?.is_yellow || 0) > 0.5;
+    const isPedGreen = Number(stepMeta?.is_ped_green || 0) > 0.5;
+
+    if (isYellow) {
+      lanes.forEach(l => {
+        out[l] = 'yellow';
+      });
+      return out;
+    }
+
+    // J4 has one vehicle phase shared by opposite lanes and one pedestrian phase.
+    if (junctionId === 'J4') {
+      if (!isPedGreen) {
+        if (out.west !== undefined) out.west = 'green';
+        if (out.east !== undefined) out.east = 'green';
+      }
+      return out;
+    }
+
+    const actionLane = { 0: 'west', 1: 'north', 2: 'east', 3: 'south' }[Number(action)];
+    if (actionLane && out[actionLane] !== undefined) {
+      out[actionLane] = 'green';
+    }
+    return out;
+  };
+
   const handleGlobalModeSwitch = (mode) => {
     setNetworkMode(mode);
     if (!isConnected) {
@@ -76,6 +180,24 @@ const Dashboard = () => {
 
         if (packet.modes) {
           updateJunctionModes(packet.modes);
+        }
+
+        if (packet.junction_live) {
+          updateFromJunctionLive(packet.junction_live, packet.avg_speed);
+
+          setQueueData(prev => {
+            const next = { ...prev };
+            JUNCTIONS.forEach(j => {
+              const existing = next[j.id] || { lanes: [...j.lanes], values: Array(j.lanes.length).fill(0) };
+              const action = packet.actions?.[j.id];
+              const stepMeta = packet.step_meta?.[j.id] || {};
+              next[j.id] = {
+                ...existing,
+                signalByLane: buildSignalByLane(j.id, action, stepMeta, j.lanes),
+              };
+            });
+            return next;
+          });
         }
 
         if (typeof packet.vehicle_count === 'number' || typeof packet.avg_speed === 'number') {
@@ -178,7 +300,7 @@ const Dashboard = () => {
               type="button"
             >
               MARL
-            </button>
+          </button>
             <button
               className={`network-mode-btn ${networkMode === 'manual' ? 'active manual' : ''}`}
               onClick={() => handleGlobalModeSwitch('manual')}

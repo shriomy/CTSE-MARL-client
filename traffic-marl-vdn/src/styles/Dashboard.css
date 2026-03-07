@@ -238,6 +238,10 @@
   color: white;
 }
 
+.lane-chip.signal-red { background: #e74c3c; }
+.lane-chip.signal-yellow { background: #f39c12; color: #1a2639; }
+.lane-chip.signal-green { background: #2ecc71; }
+
 .lane-chip.west { background: #FF6B6B; }
 .lane-chip.north { background: #4ECDC4; }
 .lane-chip.east { background: #FFD166; }

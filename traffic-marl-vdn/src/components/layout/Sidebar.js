@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   FaTachometerAlt, 
@@ -9,9 +9,39 @@ import {
   FaAmbulance,
   FaTrafficLight as FaTrafficLightIcon
 } from 'react-icons/fa';
+import { useWebSocket } from '../../services/websocket';
 import '../../styles/Sidebar.css';
 
 const Sidebar = ({ systemStatus }) => {
+  const { isConnected, data } = useWebSocket();
+  const [runtimeStatus, setRuntimeStatus] = useState(systemStatus || 'inactive');
+
+  useEffect(() => {
+    if (!isConnected) {
+      setRuntimeStatus('inactive');
+      return;
+    }
+
+    if (data?.type === 'system_status') {
+      const status = String(data.status || '').toLowerCase();
+      if (['ready', 'executing', 'running', 'active'].includes(status)) {
+        setRuntimeStatus('active');
+      } else if (['stopped', 'shutdown', 'error', 'inactive'].includes(status)) {
+        setRuntimeStatus('inactive');
+      }
+      return;
+    }
+
+    if (data?.type === 'traffic_update' || data?.type === 'mode_update' || data?.type === 'welcome') {
+      setRuntimeStatus('active');
+    }
+  }, [isConnected, data]);
+
+  const resolvedStatus = useMemo(() => {
+    if (!isConnected) return 'inactive';
+    return runtimeStatus === 'active' ? 'active' : 'inactive';
+  }, [isConnected, runtimeStatus]);
+
   const navItems = [
     { path: '/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard' },
     { path: '/map', icon: <FaMapMarkedAlt />, label: 'View Map' },
@@ -31,8 +61,8 @@ const Sidebar = ({ systemStatus }) => {
         <div className="logo-subtitle">Sri Lanka, Malabe</div>
         
         <div className="system-status">
-          <span className={`status-dot ${systemStatus === 'active' ? 'active' : 'inactive'}`}></span>
-          <span>System {systemStatus === 'active' ? 'Active' : 'Inactive'}</span>
+          <span className={`status-dot ${resolvedStatus === 'active' ? 'active' : 'inactive'}`}></span>
+          <span>System {resolvedStatus === 'active' ? 'Active' : 'Inactive'}</span>
         </div>
       </div>
 

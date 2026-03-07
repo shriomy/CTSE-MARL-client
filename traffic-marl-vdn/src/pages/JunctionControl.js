@@ -155,10 +155,10 @@ const JUNCTION_CONFIG = {
 };
 
 const JUNCTION_MAP_FOCUS = {
-  J1: { x: 30, y: 25, zoom: 2.2 },
-  J4: { x: 9, y: 35, zoom: 6.0 },
-  J8: { x: 85, y: 20, zoom: 2.2 }
-};
+  J1: { x: 30, y: 38, zoom: 5.2 },
+  J4: { x: 0, y: 35, zoom: 8.0 },
+  J8: { x: 80, y: 35, zoom: 4.5 }
+}
 
 const JunctionControl = () => {
   const { junctionId } = useParams();
@@ -197,6 +197,50 @@ const JunctionControl = () => {
     1: 'north',
     2: 'east',
     3: 'south'
+  };
+
+  const hydrateLaneDataFromLive = (junctionMetrics, avgSpeed) => {
+    if (!junctionMetrics || typeof junctionMetrics !== 'object') {
+      return;
+    }
+
+    const laneCounts = Array.isArray(junctionMetrics.lane_counts) ? junctionMetrics.lane_counts : [];
+    const pedestriansTotal = Number(junctionMetrics.pedestrians || 0);
+    const emergencyTotal = Number(junctionMetrics.emergency || 0);
+    const avgWait = Number(junctionMetrics.avg_wait_time || 0);
+    const speed = Number(avgSpeed || 0);
+
+    setLaneData(prev => {
+      const updated = { ...prev };
+      const motorLanes = junction.lanes.filter(l => l.id !== 'pedestrian');
+
+      motorLanes.forEach((lane, idx) => {
+        const queue = Number(laneCounts[idx] || 0);
+        const density = Math.min(1, queue / 20);
+        updated[lane.id] = {
+          ...(updated[lane.id] || {}),
+          queueLength: Math.round(queue),
+          vehicleDensity: density,
+          vehiclesWaiting: Math.round(queue),
+          avgWaitTime: Number(avgWait.toFixed(1)),
+          pedestriansWaiting: Math.round(pedestriansTotal / Math.max(1, motorLanes.length)),
+          emergencyVehicles: emergencyTotal,
+          avgSpeed: Number(speed.toFixed(1)),
+        };
+      });
+
+      if (junction.lanes.some(l => l.id === 'pedestrian')) {
+        const pedQueue = Math.round(pedestriansTotal);
+        updated.pedestrian = {
+          ...(updated.pedestrian || {}),
+          queueLength: pedQueue,
+          pedestriansWaiting: pedQueue,
+          avgWaitTime: Number(avgWait.toFixed(1)),
+        };
+      }
+
+      return updated;
+    });
   };
   
   // Get current junction config
@@ -310,6 +354,10 @@ const JunctionControl = () => {
         if (modeForJunction && SERVER_TO_MODE[modeForJunction]) {
           setControlMode(SERVER_TO_MODE[modeForJunction]);
         }
+      }
+
+      if (data.data?.junction_live?.[junctionId]) {
+        hydrateLaneDataFromLive(data.data.junction_live[junctionId], data.data.avg_speed);
       }
 
       const frame = data.data?.sumo_live_frame;
