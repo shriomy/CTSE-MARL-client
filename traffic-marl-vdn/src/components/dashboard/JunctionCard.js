@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FaEye } from 'react-icons/fa';
 
 const JunctionCard = ({ junction, data }) => {
   const navigate = useNavigate();
@@ -34,6 +35,11 @@ const JunctionCard = ({ junction, data }) => {
   };
 
   const openJunctionControl = () => {
+    // navigate(`/junction-control/${junction.id}`);
+  };
+
+  const handleDetailButtonClick = (event) => {
+    event.stopPropagation();
     navigate(`/junction-control/${junction.id}`);
   };
 
@@ -99,6 +105,14 @@ const JunctionCard = ({ junction, data }) => {
             <div className="stat-value">{accidents}</div>
           </div>
         </div>
+
+        <button
+          type="button"
+          className="junction-detail-btn"
+          onClick={handleDetailButtonClick}
+        >
+          <FaEye /> View in Detail and Control
+        </button>
       </div>
     </div>
   );

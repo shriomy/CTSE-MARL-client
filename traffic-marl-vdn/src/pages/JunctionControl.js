@@ -73,7 +73,6 @@ const JUNCTION_CONFIG = {
     roadNames: {
       west: 'Malabe Road',
       east: 'New Kandy Road',
-      north: 'Kaduwela Road'
     }
   },
   'J1': {
@@ -84,21 +83,21 @@ const JUNCTION_CONFIG = {
     lanes: [
       { 
         id: 'west', 
-        name: 'Kaduwela Road', 
+        name: 'New kandy Road', 
         direction: 'West',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
       },
       { 
         id: 'north', 
-        name: 'New Kandy Road', 
+        name: 'Weliwita Road', 
         direction: 'North',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
       },
       { 
         id: 'east', 
-        name: 'Weliwita Road', 
+        name: 'Kaduwela Road', 
         direction: 'East',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'yellow'
@@ -125,14 +124,14 @@ const JUNCTION_CONFIG = {
       },
       { 
         id: 'east', 
-        name: 'Awissawella Road', 
+        name: 'Malabe Road', 
         direction: 'East',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
       },
       { 
         id: 'south', 
-        name: 'Malabe Road', 
+        name: 'Awissawella Road', 
         direction: 'South',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
@@ -169,6 +168,11 @@ const JunctionControl = () => {
   const [laneData, setLaneData] = useState({});
   const [activeGreenLane, setActiveGreenLane] = useState('north');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(18);
+  const [isSwitchConfirmOpen, setIsSwitchConfirmOpen] = useState(false);
+  const [requestedMode, setRequestedMode] = useState('');
+  const [pendingValidationMode, setPendingValidationMode] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '' });
   const [liveFrame, setLiveFrame] = useState('');
   const [liveUpdatedAt, setLiveUpdatedAt] = useState(0);
   const [mapError, setMapError] = useState(false);
@@ -197,6 +201,22 @@ const JunctionControl = () => {
     1: 'north',
     2: 'east',
     3: 'south'
+  };
+
+  const MODE_LABEL = {
+    agent: 'MARL Agent',
+    police: 'Police Officer',
+    fixed: 'Fixed Time Controller'
+  };
+
+  const validateSwitchIfPending = (serverMode) => {
+    if (!pendingValidationMode) {
+      return;
+    }
+    if (MODE_TO_SERVER[pendingValidationMode] === serverMode) {
+      setPendingValidationMode('');
+      setToast({ show: true, message: `Environment switched to ${MODE_LABEL[pendingValidationMode]}.` });
+    }
   };
 
   const hydrateLaneDataFromLive = (junctionMetrics, avgSpeed) => {
@@ -345,6 +365,7 @@ const JunctionControl = () => {
       const serverMode = data.data.junction_modes[junctionId];
       if (serverMode && SERVER_TO_MODE[serverMode]) {
         setControlMode(SERVER_TO_MODE[serverMode]);
+        validateSwitchIfPending(serverMode);
       }
     }
 
@@ -353,6 +374,7 @@ const JunctionControl = () => {
         const modeForJunction = data.data.modes[junctionId];
         if (modeForJunction && SERVER_TO_MODE[modeForJunction]) {
           setControlMode(SERVER_TO_MODE[modeForJunction]);
+          validateSwitchIfPending(modeForJunction);
         }
       }
 
@@ -373,17 +395,58 @@ const JunctionControl = () => {
         setActiveGreenLane(lane);
       }
     }
-  }, [data, junctionId]);
+  }, [data, junctionId, pendingValidationMode]);
+
+  useEffect(() => {
+    setTimeRemaining(18);
+  }, [activeGreenLane]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeRemaining((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!toast.show) {
+      return undefined;
+    }
+    const timeoutId = setTimeout(() => {
+      setToast({ show: false, message: '' });
+    }, 2600);
+    return () => clearTimeout(timeoutId);
+  }, [toast.show]);
   
   const handleModeSwitch = (mode) => {
-    setControlMode(mode);
+    setRequestedMode(mode);
+    setIsSwitchConfirmOpen(true);
+  };
+
+  const confirmModeSwitch = () => {
+    if (!requestedMode) {
+      setIsSwitchConfirmOpen(false);
+      return;
+    }
+
     if (isConnected) {
       sendMessage({
         type: 'set_junction_mode',
         junction_id: junctionId,
-        mode: MODE_TO_SERVER[mode] || 'marl'
+        mode: MODE_TO_SERVER[requestedMode] || 'marl'
       });
+      setPendingValidationMode(requestedMode);
+    } else {
+      setToast({ show: true, message: 'Cannot switch environment while backend is offline.' });
     }
+
+    setIsSwitchConfirmOpen(false);
+    setRequestedMode('');
+  };
+
+  const cancelModeSwitch = () => {
+    setIsSwitchConfirmOpen(false);
+    setRequestedMode('');
   };
 
   const handlePoliceLaneClick = (laneId) => {
@@ -597,13 +660,13 @@ const JunctionControl = () => {
                   <span className="switch-text">Switch to Fixed Time Control</span>
                 </button>
               </div>
-              
-              {/* Active Phase Information */}
-              <div className="active-phase-info">
-                <div className="phase-details">
-                  <div className="phase-road">
-                    <FaRoad /> {getActiveGreenLaneName()}
-                  </div>
+
+              <div className="current-state-info">
+                <h3>Current state information:</h3>
+                <div className="current-state-line">
+                  <span>{getActiveGreenLaneName()}</span>
+                  <span> - </span>
+                  <span className="state-green">GREEN</span>
                 </div>
               </div>
             </div>
@@ -878,6 +941,21 @@ const JunctionControl = () => {
           </div>
         </div>
       </div>
+
+      {isSwitchConfirmOpen && (
+        <div className="switch-modal-backdrop" onClick={cancelModeSwitch}>
+          <div className="switch-modal" onClick={(e) => e.stopPropagation()}>
+            <h4>Confirm Environment Switch</h4>
+            <p>Switch this junction to <strong>{MODE_LABEL[requestedMode] || 'selected mode'}</strong>?</p>
+            <div className="switch-modal-actions">
+              <button type="button" className="btn-cancel" onClick={cancelModeSwitch}>Cancel</button>
+              <button type="button" className="btn-confirm" onClick={confirmModeSwitch}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast.show && <div className="switch-toast">{toast.message}</div>}
     </div>
   );
 };

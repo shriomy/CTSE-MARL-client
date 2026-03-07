@@ -6,9 +6,9 @@ const LANE_NAME_BY_JUNCTION = {
     east: 'New Kandy Road',
   },
   J1: {
-    west: 'Kaduwela Road',
+    west: 'New Kandy Road',
     north: 'Weliwita Road',
-    east: 'New Kandy Road',
+    east: 'kaduwela Road',
   },
   J8: {
     north: 'Kaduwela Road',

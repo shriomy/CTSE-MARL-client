@@ -13,6 +13,10 @@ const Dashboard = () => {
   const [junctionData, setJunctionData] = useState({});
   const [queueData, setQueueData] = useState({});
   const [networkMode, setNetworkMode] = useState('marl');
+  const [isSwitchConfirmOpen, setIsSwitchConfirmOpen] = useState(false);
+  const [requestedMode, setRequestedMode] = useState('');
+  const [pendingValidationMode, setPendingValidationMode] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '' });
   const [summaryData, setSummaryData] = useState({
     accidents: 0,
     emergencyVehicles: 0,
@@ -25,6 +29,23 @@ const Dashboard = () => {
     if (mode === 'fixed') return 'Fixed Time';
     if (mode === 'marl') return 'MARL Agent';
     return 'Mixed';
+  };
+
+  const MODE_LABEL = {
+    marl: 'MARL Agent',
+    manual: 'Police Officer',
+    fixed: 'Fixed Time Controller'
+  };
+
+  const validateSwitchIfPending = (serverMode) => {
+    if (!pendingValidationMode) {
+      return;
+    }
+
+    if (pendingValidationMode === serverMode) {
+      setPendingValidationMode('');
+      setToast({ show: true, message: `Environment switched to ${MODE_LABEL[serverMode] || serverMode}.` });
+    }
   };
 
   const updateJunctionModes = (modes) => {
@@ -145,15 +166,35 @@ const Dashboard = () => {
   };
 
   const handleGlobalModeSwitch = (mode) => {
-    setNetworkMode(mode);
+    setRequestedMode(mode);
+    setIsSwitchConfirmOpen(true);
+  };
+
+  const confirmGlobalModeSwitch = () => {
+    if (!requestedMode) {
+      setIsSwitchConfirmOpen(false);
+      return;
+    }
+
     if (!isConnected) {
+      setToast({ show: true, message: 'Cannot switch environment while backend is offline.' });
+      setIsSwitchConfirmOpen(false);
+      setRequestedMode('');
       return;
     }
 
     sendMessage({
       type: 'set_global_mode',
-      mode
+      mode: requestedMode
     });
+    setPendingValidationMode(requestedMode);
+    setIsSwitchConfirmOpen(false);
+    setRequestedMode('');
+  };
+
+  const cancelGlobalModeSwitch = () => {
+    setIsSwitchConfirmOpen(false);
+    setRequestedMode('');
   };
 
   useEffect(() => {
@@ -169,6 +210,7 @@ const Dashboard = () => {
         const modePayload = data.data || {};
         if (modePayload.global_mode) {
           setNetworkMode(modePayload.global_mode);
+          validateSwitchIfPending(modePayload.global_mode);
         }
         if (modePayload.junction_modes) {
           updateJunctionModes(modePayload.junction_modes);
@@ -222,6 +264,16 @@ const Dashboard = () => {
       }
     }
   }, [data]);
+
+  useEffect(() => {
+    if (!toast.show) {
+      return undefined;
+    }
+    const timeoutId = setTimeout(() => {
+      setToast({ show: false, message: '' });
+    }, 2600);
+    return () => clearTimeout(timeoutId);
+  }, [toast.show]);
 
   // Simulated data for demonstration (remove when connected to real data)
   useEffect(() => {
@@ -319,6 +371,32 @@ const Dashboard = () => {
           <span className="network-mode-text">{getModeLabel(networkMode)}</span>
         </div>
       </div>
+
+      {isSwitchConfirmOpen && (
+        <div className="network-switch-modal-backdrop" role="dialog" aria-modal="true">
+          <div className="network-switch-modal">
+            <h4>Confirm Environment Switch</h4>
+            <p>
+              Switch whole network to <strong>{MODE_LABEL[requestedMode] || requestedMode}</strong>?
+            </p>
+            {requestedMode === 'manual' && (
+              <p className="network-switch-modal-note">
+                This will require multiple police officers ({JUNCTIONS.length}) to operate.
+              </p>
+            )}
+            <div className="network-switch-modal-actions">
+              <button className="network-btn-cancel" type="button" onClick={cancelGlobalModeSwitch}>
+                Cancel
+              </button>
+              <button className="network-btn-confirm" type="button" onClick={confirmGlobalModeSwitch}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast.show && <div className="network-switch-toast">{toast.message}</div>}
 
       <div className="junctions-grid">
         {JUNCTIONS.map(junction => (

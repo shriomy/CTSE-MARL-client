@@ -77,6 +77,86 @@
   min-width: 90px;
 }
 
+.network-switch-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.network-switch-modal {
+  width: min(440px, 92vw);
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 20px 45px rgba(2, 6, 23, 0.28);
+}
+
+.network-switch-modal h4 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.network-switch-modal p {
+  margin: 0 0 12px 0;
+  color: #334155;
+  font-size: 14px;
+}
+
+.network-switch-modal-note {
+  font-size: 12px;
+  color: #7f1d1d;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.network-switch-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.network-btn-cancel,
+.network-btn-confirm {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.network-btn-cancel {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.network-btn-confirm {
+  background: #0ea5e9;
+  color: #ffffff;
+}
+
+.network-switch-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2100;
+  background: #14532d;
+  color: #dcfce7;
+  border: 1px solid #22c55e;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  box-shadow: 0 10px 24px rgba(20, 83, 45, 0.25);
+}
+
 /* Junction Cards Grid */
 .junctions-grid {
   display: grid;
@@ -193,6 +273,29 @@
   margin-left: 2px;
 }
 
+.junction-detail-btn {
+  margin-top: 16px;
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0a7ad1 0%, #044a92 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.junction-detail-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(4, 74, 146, 0.25);
+}
+
 /* Queue Cards */
 .queue-cards {
   display: grid;
@@ -285,6 +388,7 @@
 .queue-bar.high { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
 
 /* Live Summary Cards */
+/* Live Summary Cards */
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -300,51 +404,82 @@
   align-items: center;
   gap: 15px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+}
+
+/* Special animation for accidents card */
+.summary-card[style*="border: 2px solid #e74c3c"] {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(231, 76, 60, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+  }
 }
 
 .summary-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 25px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  width: 60px;
+  height: 60px;
+  border-radius: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 24px;
+  font-size: 28px;
+  transition: all 0.3s;
 }
 
 .summary-content h4 {
-  font-size: 14px;
-  color: #718096;
-  margin-bottom: 5px;
+  font-size: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
 }
 
 .summary-value {
-  font-size: 28px;
+  font-size: 48px;
   font-weight: 700;
   color: #1a2639;
+  line-height: 1.2;
+}
+
+/* Traffic level specific styling */
+.summary-card:last-child .summary-value {
+  font-size: 36px;
 }
 
 .summary-unit {
-  font-size: 12px;
+  font-size: 14px;
   color: #a0aec0;
   margin-left: 5px;
+  font-weight: 400;
 }
 
-/* Responsive */
-@media (max-width: 1200px) {
-  .junctions-grid,
-  .queue-cards,
+/* Responsive design */
+@media (max-width: 1024px) {
   .summary-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  
+  .summary-value {
+    font-size: 42px;
+  }
 }
 
-@media (max-width: 768px) {
-  .junctions-grid,
-  .queue-cards,
+@media (max-width: 640px) {
   .summary-grid {
     grid-template-columns: 1fr;
   }
 }
+
