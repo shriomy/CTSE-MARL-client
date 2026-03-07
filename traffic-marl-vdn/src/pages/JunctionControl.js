@@ -154,6 +154,12 @@ const JUNCTION_CONFIG = {
   }
 };
 
+const JUNCTION_MAP_FOCUS = {
+  J1: { x: 30, y: 25, zoom: 2.2 },
+  J4: { x: 9, y: 35, zoom: 6.0 },
+  J8: { x: 85, y: 20, zoom: 2.2 }
+};
+
 const JunctionControl = () => {
   const { junctionId } = useParams();
   const navigate = useNavigate();
@@ -163,6 +169,9 @@ const JunctionControl = () => {
   const [laneData, setLaneData] = useState({});
   const [activeGreenLane, setActiveGreenLane] = useState('north');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [liveFrame, setLiveFrame] = useState('');
+  const [liveUpdatedAt, setLiveUpdatedAt] = useState(0);
+  const [mapError, setMapError] = useState(false);
 
   const MODE_TO_SERVER = {
     agent: 'marl',
@@ -302,6 +311,14 @@ const JunctionControl = () => {
           setControlMode(SERVER_TO_MODE[modeForJunction]);
         }
       }
+
+      const frame = data.data?.sumo_live_frame;
+      if (typeof frame === 'string' && frame.startsWith('data:image/')) {
+        setLiveFrame(frame);
+        setLiveUpdatedAt(Date.now());
+        setMapError(false);
+      }
+
       const action = data.data.actions[junctionId];
       const lane = actionToLane[action];
       if (lane) {
@@ -365,6 +382,18 @@ const JunctionControl = () => {
   const policeSelectableLanes = junction.lanes.filter(
     lane => lane.id !== 'pedestrian' && laneToAction[lane.id] !== undefined
   );
+
+  const fallbackMapByJunction = {
+    J1: '/Weliwita.png',
+    J4: '/Sliit.png',
+    J8: '/Kaduwela.png'
+  };
+
+  const mapFocus = JUNCTION_MAP_FOCUS[junctionId] || { x: 50, y: 50, zoom: 1.6 };
+  const showLiveFeed = isConnected && !!liveFrame;
+  const mapSource = showLiveFeed ? liveFrame : (fallbackMapByJunction[junctionId] || '/Map.png');
+  const mapTransform = showLiveFeed ? `scale(${mapFocus.zoom})` : 'scale(1)';
+  const mapTransformOrigin = `${mapFocus.x}% ${mapFocus.y}%`;
   
   // Chart data for wait time trends
   const waitTimeChartData = {
@@ -451,58 +480,28 @@ const JunctionControl = () => {
           <div className="live-control-row">
             {/* Left - SUMO Map (placeholder) */}
             <div className="map-container">
-              {/* <div className="map-placeholder">
-                <FaMapMarkedAlt className="map-icon" />
-                <p>SUMO Simulation View</p>
-                <small>Junction {junction.name}</small>
-                <div className="map-coordinates">
-                  <span>Lat: 6.9271° N</span>
-                  <span>Lng: 79.9612° E</span>
-                </div>
-              </div> */}
+              <div className="junction-map-frame">
+                <img
+                  src={mapSource}
+                  alt={showLiveFeed ? `Live SUMO View - ${junction.name}` : `${junction.name} Junction Map`}
+                  className="junction-map"
+                  style={{ transform: mapTransform, transformOrigin: mapTransformOrigin }}
+                  onError={() => setMapError(true)}
+                />
 
-              {junctionId === 'J1' && (
-                <img 
-                  src="/Weliwita.png" 
-                  alt="SLIIT Campus Junction Map"
-                  className="junction-map"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/images/maps/placeholder-map.png';
-                  }}
-                />
-              )}
-              
-              {junctionId === 'J4' && (
-                <img 
-                  src="/Sliit.png" 
-                  alt="Weliwita Junction Map"
-                  className="junction-map"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/images/maps/placeholder-map.png';
-                  }}
-                />
-              )}
-              
-              {junctionId === 'J8' && (
-                <img 
-                  src="/Kaduwela.png" 
-                  alt="Kaduwela Junction Map"
-                  className="junction-map"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/images/maps/placeholder-map.png';
-                  }}
-                />
-              )}
-              
-              {/* Fallback if no junction-specific map or error */}
-              {(!junctionId || ![ 'J1', 'J4', 'J8' ].includes(junctionId)) && (
+                {showLiveFeed && (
+                  <div className="junction-live-badge">
+                    LIVE VIEW
+                    <span className="junction-live-dot" />
+                  </div>
+                )}
+              </div>
+
+              {mapError && (
                 <div className="map-placeholder">
                   <FaMapMarkedAlt className="map-icon" />
                   <p>SUMO Simulation View</p>
-                  <small>Junction {junction.name}</small>
+                  <small>Live frame unavailable for {junction.name}</small>
                   <div className="map-coordinates">
                     <span>Lat: 6.9271° N</span>
                     <span>Lng: 79.9612° E</span>
@@ -562,6 +561,12 @@ const JunctionControl = () => {
             </div>
           </div>
         </div>
+
+        {showLiveFeed && (
+          <div className="junction-live-meta">
+            Last frame: {new Date(liveUpdatedAt).toLocaleTimeString()}
+          </div>
+        )}
 
         {controlMode === 'police' && (
           <div className="police-lane-command-section">

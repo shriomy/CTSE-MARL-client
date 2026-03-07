@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaMapMarkedAlt, 
@@ -12,10 +12,12 @@ import { useWebSocket } from '../services/websocket';
 import '../styles/MapView.css';
 
 const MapView = () => {
-  const { isConnected } = useWebSocket();
+  const { isConnected, data } = useWebSocket();
   const navigate = useNavigate();
   const [zoom, setZoom] = useState(1);
   const [mapError, setMapError] = useState(false);
+  const [liveFrame, setLiveFrame] = useState('');
+  const [liveUpdatedAt, setLiveUpdatedAt] = useState(0);
   
   const handleZoomIn = () => {
     setZoom(prev => Math.min(prev + 0.2, 2));
@@ -32,6 +34,24 @@ const MapView = () => {
   const handleJunctionClick = (junctionId) => {
     navigate(`/junction-control/${junctionId}`);
   };
+
+  useEffect(() => {
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+
+    if (data.type === 'traffic_update') {
+      const frame = data.data?.sumo_live_frame;
+      if (typeof frame === 'string' && frame.startsWith('data:image/')) {
+        setLiveFrame(frame);
+        setLiveUpdatedAt(Date.now());
+        setMapError(false);
+      }
+    }
+  }, [data]);
+
+  const showLiveFeed = isConnected && !!liveFrame;
+  const mapSource = showLiveFeed ? liveFrame : '/Map.png';
 
   return (
     <div className="map-view-page">
@@ -72,11 +92,18 @@ const MapView = () => {
           style={{ transform: `scale(${zoom})` }}
         >
           <img 
-            src="/Map.png" 
-            alt="Complete MARL Traffic Network"
+            src={mapSource}
+            alt={showLiveFeed ? 'Live SUMO GUI Stream' : 'Complete MARL Traffic Network'}
             className="network-map"
             onError={() => setMapError(true)}
           />
+
+          {showLiveFeed && (
+            <div className="live-map-badge">
+              LIVE SUMO GUI
+              <span className="live-map-dot" />
+            </div>
+          )}
           
           {/* Interactive Junction Overlays */}
           <div className="junction-overlays">
@@ -121,6 +148,12 @@ const MapView = () => {
           </div>
         )}
       </div>
+
+      {showLiveFeed && (
+        <div className="live-map-meta">
+          Last frame: {new Date(liveUpdatedAt).toLocaleTimeString()}
+        </div>
+      )}
       
       {/* Map Legend */}
       <div className="map-legend">
