@@ -50,10 +50,18 @@
   font-weight: 700;
   padding: 7px 12px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .network-mode-btn:hover {
   background: #f4f7fb;
+}
+
+.network-mode-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .network-mode-btn.active.marl {
@@ -155,6 +163,27 @@
   border-radius: 10px;
   font-size: 13px;
   box-shadow: 0 10px 24px rgba(20, 83, 45, 0.25);
+}
+
+.inline-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: spin 0.7s linear infinite;
+}
+
+.inline-spinner.tiny {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Junction Cards Grid */

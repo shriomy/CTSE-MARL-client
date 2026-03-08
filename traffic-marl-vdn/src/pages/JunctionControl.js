@@ -172,7 +172,9 @@ const JunctionControl = () => {
   const [isSwitchConfirmOpen, setIsSwitchConfirmOpen] = useState(false);
   const [requestedMode, setRequestedMode] = useState('');
   const [pendingValidationMode, setPendingValidationMode] = useState('');
+  const [pendingManualCommand, setPendingManualCommand] = useState('');
   const [toast, setToast] = useState({ show: false, message: '' });
+  const [activeManualCommand, setActiveManualCommand] = useState('');
   const [liveFrame, setLiveFrame] = useState('');
   const [liveUpdatedAt, setLiveUpdatedAt] = useState(0);
   const [mapError, setMapError] = useState(false);
@@ -209,6 +211,25 @@ const JunctionControl = () => {
     fixed: 'Fixed Time Controller'
   };
 
+  const LANE_EDGE_MAP = {
+    J4: {
+      west: ['-E0'],
+      east: ['E0'],
+      pedestrian: ['J4_c0', 'J4_c1'],
+    },
+    J1: {
+      west: ['-E3'],
+      north: ['-E2'],
+      east: ['E00'],
+    },
+    J8: {
+      north: ['-E5'],
+      east: ['-E4'],
+      south: ['-E8'],
+      west: ['E3'],
+    },
+  };
+
   const validateSwitchIfPending = (serverMode) => {
     if (!pendingValidationMode) {
       return;
@@ -219,24 +240,81 @@ const JunctionControl = () => {
     }
   };
 
+  const commandMatchesAction = (commandId, actionValue) => {
+    const actionNum = Number(actionValue);
+    if (junctionId === 'J4') {
+      if (commandId === 'vehicles') {
+        return actionNum === 0 || actionNum === 2;
+      }
+      if (commandId === 'pedestrians') {
+        return actionNum === 1 || actionNum === 3;
+      }
+      return false;
+    }
+
+    const targetAction = laneToAction[commandId];
+    return targetAction !== undefined && Number(targetAction) === actionNum;
+  };
+
   const hydrateLaneDataFromLive = (junctionMetrics, avgSpeed) => {
     if (!junctionMetrics || typeof junctionMetrics !== 'object') {
       return;
     }
 
     const laneCounts = Array.isArray(junctionMetrics.lane_counts) ? junctionMetrics.lane_counts : [];
+    const laneCountsByEdge = junctionMetrics.lane_counts_by_edge && typeof junctionMetrics.lane_counts_by_edge === 'object'
+      ? junctionMetrics.lane_counts_by_edge
+      : {};
+    const signalState = junctionMetrics.signal_state && typeof junctionMetrics.signal_state === 'object'
+      ? junctionMetrics.signal_state
+      : {};
+    const laneEdgeMap = LANE_EDGE_MAP[junctionId] || {};
     const pedestriansTotal = Number(junctionMetrics.pedestrians || 0);
     const emergencyTotal = Number(junctionMetrics.emergency || 0);
     const avgWait = Number(junctionMetrics.avg_wait_time || 0);
     const speed = Number(avgSpeed || 0);
+
+    const signalForLane = (laneId) => {
+      const edges = laneEdgeMap[laneId] || [];
+      if (!edges.length) {
+        return null;
+      }
+
+      const states = edges
+        .map((edgeId) => String(signalState[edgeId] || '').toLowerCase())
+        .filter(Boolean);
+
+      if (!states.length) {
+        return null;
+      }
+      if (states.includes('green')) {
+        return 'green';
+      }
+      if (states.includes('yellow')) {
+        return 'yellow';
+      }
+      return 'red';
+    };
+
+    const queueForLane = (laneId, fallbackIndex) => {
+      const edges = laneEdgeMap[laneId] || [];
+      if (edges.length) {
+        const edgeSum = edges.reduce((sum, edgeId) => sum + Number(laneCountsByEdge[edgeId] || 0), 0);
+        if (edgeSum > 0 || edges.some((edgeId) => Object.prototype.hasOwnProperty.call(laneCountsByEdge, edgeId))) {
+          return edgeSum;
+        }
+      }
+      return Number(laneCounts[fallbackIndex] || 0);
+    };
 
     setLaneData(prev => {
       const updated = { ...prev };
       const motorLanes = junction.lanes.filter(l => l.id !== 'pedestrian');
 
       motorLanes.forEach((lane, idx) => {
-        const queue = Number(laneCounts[idx] || 0);
+        const queue = queueForLane(lane.id, idx);
         const density = Math.min(1, queue / 20);
+        const laneSignal = signalForLane(lane.id);
         updated[lane.id] = {
           ...(updated[lane.id] || {}),
           queueLength: Math.round(queue),
@@ -246,16 +324,20 @@ const JunctionControl = () => {
           pedestriansWaiting: Math.round(pedestriansTotal / Math.max(1, motorLanes.length)),
           emergencyVehicles: emergencyTotal,
           avgSpeed: Number(speed.toFixed(1)),
+          ...(laneSignal ? { currentSignal: laneSignal } : {}),
         };
       });
 
       if (junction.lanes.some(l => l.id === 'pedestrian')) {
-        const pedQueue = Math.round(pedestriansTotal);
+        const pedEdgeQueue = queueForLane('pedestrian', motorLanes.length);
+        const pedQueue = Math.round(pedEdgeQueue || pedestriansTotal);
+        const pedSignal = signalForLane('pedestrian');
         updated.pedestrian = {
           ...(updated.pedestrian || {}),
           queueLength: pedQueue,
           pedestriansWaiting: pedQueue,
           avgWaitTime: Number(avgWait.toFixed(1)),
+          ...(pedSignal ? { currentSignal: pedSignal } : {}),
         };
       }
 
@@ -331,23 +413,6 @@ const JunctionControl = () => {
       setActiveGreenLane('north');
     }
   }, [junctionId]);
-  
-  // Update lane signals based on active green
-  useEffect(() => {
-    setLaneData(prev => {
-      const updated = { ...prev };
-      junction.lanes.forEach(lane => {
-        if (lane.id === activeGreenLane) {
-          updated[lane.id] = { ...updated[lane.id], currentSignal: 'green' };
-        } else if (lane.id === 'pedestrian') {
-          updated[lane.id] = { ...updated[lane.id], currentSignal: 'red' };
-        } else {
-          updated[lane.id] = { ...updated[lane.id], currentSignal: 'red' };
-        }
-      });
-      return updated;
-    });
-  }, [activeGreenLane, junction.lanes]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -390,12 +455,29 @@ const JunctionControl = () => {
       }
 
       const action = data.data.actions[junctionId];
-      const lane = actionToLane[action];
-      if (lane) {
-        setActiveGreenLane(lane);
+      if (junctionId === 'J4') {
+        const isPedestrianCommand = Number(action) === 1 || Number(action) === 3;
+        setActiveManualCommand(isPedestrianCommand ? 'pedestrians' : 'vehicles');
+        setActiveGreenLane(isPedestrianCommand ? 'pedestrian' : 'east');
+      } else {
+        const lane = actionToLane[action];
+        if (lane) {
+          setActiveManualCommand(lane);
+          setActiveGreenLane(lane);
+        }
+      }
+
+      if (pendingManualCommand && commandMatchesAction(pendingManualCommand, action)) {
+        setPendingManualCommand('');
+        const label = pendingManualCommand === 'vehicles'
+          ? 'Vehicles'
+          : pendingManualCommand === 'pedestrians'
+            ? 'Pedestrians'
+            : (junction.lanes.find((l) => l.id === pendingManualCommand)?.name || pendingManualCommand);
+        setToast({ show: true, message: `GREEN command applied: ${label}.` });
       }
     }
-  }, [data, junctionId, pendingValidationMode]);
+  }, [data, junctionId, pendingValidationMode, pendingManualCommand]);
 
   useEffect(() => {
     setTimeRemaining(18);
@@ -449,26 +531,32 @@ const JunctionControl = () => {
     setRequestedMode('');
   };
 
-  const handlePoliceLaneClick = (laneId) => {
-    const action = laneToAction[laneId];
+  const handlePoliceLaneClick = (commandId, action, activeLaneHint) => {
     if (action === undefined) {
       return;
     }
 
-    setActiveGreenLane(laneId);
-
-    if (isConnected) {
-      sendMessage({
-        type: 'set_manual_action',
-        junction_id: junctionId,
-        action
-      });
-      sendMessage({
-        type: 'set_junction_mode',
-        junction_id: junctionId,
-        mode: 'manual'
-      });
+    if (!isConnected) {
+      setToast({ show: true, message: 'Cannot send green command while backend is offline.' });
+      return;
     }
+
+    setPendingManualCommand(commandId);
+    setActiveManualCommand(commandId);
+    if (activeLaneHint) {
+      setActiveGreenLane(activeLaneHint);
+    }
+
+    sendMessage({
+      type: 'set_manual_action',
+      junction_id: junctionId,
+      action
+    });
+    sendMessage({
+      type: 'set_junction_mode',
+      junction_id: junctionId,
+      mode: 'manual'
+    });
   };
   
   const handleJunctionChange = (newJunctionId) => {
@@ -494,6 +582,31 @@ const JunctionControl = () => {
     lane => lane.id !== 'pedestrian' && laneToAction[lane.id] !== undefined
   );
 
+  const manualCommandOptions = junctionId === 'J4'
+    ? [
+        {
+          id: 'vehicles',
+          label: 'Vehicles',
+          subtitle: 'Malabe Road + New Kandy Road',
+          action: 0,
+          activeLaneHint: 'east',
+        },
+        {
+          id: 'pedestrians',
+          label: 'Pedestrians',
+          subtitle: 'North + South crossings',
+          action: 1,
+          activeLaneHint: 'pedestrian',
+        },
+      ]
+    : policeSelectableLanes.map((lane) => ({
+        id: lane.id,
+        label: lane.name,
+        subtitle: lane.direction,
+        action: laneToAction[lane.id],
+        activeLaneHint: lane.id,
+      }));
+
   const fallbackMapByJunction = {
     J1: '/Weliwita.png',
     J4: '/Sliit.png',
@@ -501,6 +614,8 @@ const JunctionControl = () => {
   };
 
   const mapFocus = JUNCTION_MAP_FOCUS[junctionId] || { x: 50, y: 50, zoom: 1.6 };
+  const isModeSwitchLoading = !!pendingValidationMode;
+  const isManualCommandLoading = !!pendingManualCommand;
   const showLiveFeed = isConnected && !!liveFrame;
   const mapSource = showLiveFeed ? liveFrame : (fallbackMapByJunction[junctionId] || '/Map.png');
   const mapTransform = showLiveFeed ? `scale(${mapFocus.zoom})` : 'scale(1)';
@@ -639,24 +754,33 @@ const JunctionControl = () => {
                 <button 
                   className={`mode-switch police ${controlMode === 'police' ? 'active' : ''}`}
                   onClick={() => handleModeSwitch('police')}
+                  type="button"
+                  disabled={isModeSwitchLoading}
                 >
                   <span className="switch-icon">👮</span>
+                  {pendingValidationMode === 'police' && <span className="inline-spinner" aria-hidden="true" />}
                   <span className="switch-text">Switch to Police Officer Mode</span>
                 </button>
                 
                 <button 
                   className={`mode-switch agent ${controlMode === 'agent' ? 'active' : ''}`}
                   onClick={() => handleModeSwitch('agent')}
+                  type="button"
+                  disabled={isModeSwitchLoading}
                 >
                   <span className="switch-icon">🤖</span>
+                  {pendingValidationMode === 'agent' && <span className="inline-spinner" aria-hidden="true" />}
                   <span className="switch-text">Switch to MARL Agent</span>
                 </button>
                 
                 <button 
                   className={`mode-switch fixed ${controlMode === 'fixed' ? 'active' : ''}`}
                   onClick={() => handleModeSwitch('fixed')}
+                  type="button"
+                  disabled={isModeSwitchLoading}
                 >
                   <span className="switch-icon">⏱️</span>
+                  {pendingValidationMode === 'fixed' && <span className="inline-spinner" aria-hidden="true" />}
                   <span className="switch-text">Switch to Fixed Time Control</span>
                 </button>
               </div>
@@ -686,19 +810,20 @@ const JunctionControl = () => {
             </h2>
             <div className="command-hint">
               <span className="green-command-cursor" aria-hidden="true">➤</span>
-              Click a lane to give GREEN signal at this junction.
+              Click a command to give GREEN signal at this junction.
             </div>
             <div className="police-lane-command-grid">
-              {policeSelectableLanes.map(lane => (
+              {manualCommandOptions.map((option) => (
                 <button
-                  key={lane.id}
-                  className={`police-lane-command-btn ${lane.id === activeGreenLane ? 'active' : ''}`}
-                  onClick={() => handlePoliceLaneClick(lane.id)}
+                  key={option.id}
+                  className={`police-lane-command-btn ${option.id === activeManualCommand ? 'active' : ''}`}
+                  onClick={() => handlePoliceLaneClick(option.id, option.action, option.activeLaneHint)}
                   type="button"
+                  disabled={isManualCommandLoading}
                 >
-                  <span className="lane-direction-chip">{lane.direction}</span>
-                  <span className="lane-command-name">{lane.name}</span>
-                  {lane.id === activeGreenLane && <span className="lane-green-indicator">GREEN</span>}
+                  <span className="lane-command-name">{option.label}</span>
+                  {pendingManualCommand === option.id && <span className="inline-spinner dark" aria-hidden="true" />}
+                  {option.id === activeManualCommand && <span className="lane-green-indicator">GREEN</span>}
                 </button>
               ))}
             </div>

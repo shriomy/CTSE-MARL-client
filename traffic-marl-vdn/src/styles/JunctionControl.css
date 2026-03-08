@@ -314,6 +314,12 @@
   transform: scale(1.02);
 }
 
+.mode-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
 .mode-switch.police {
   background-color: #ed4f16; /* red */
 }
@@ -447,6 +453,11 @@
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
 }
 
+.police-lane-command-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 .lane-direction-chip {
   min-width: 56px;
   height: 28px;
@@ -473,6 +484,20 @@
   background: #b7f5cd;
   border-radius: 12px;
   padding: 3px 8px;
+}
+
+.inline-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: spin 0.7s linear infinite;
+}
+
+.inline-spinner.dark {
+  border: 2px solid rgba(30, 41, 59, 0.25);
+  border-top-color: #1e293b;
 }
 
 @keyframes greenCommandPulse {
@@ -976,4 +1001,10 @@
   background: rgba(255, 255, 255, 0.1);
   padding: 8px 16px;
   border-radius: 20px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

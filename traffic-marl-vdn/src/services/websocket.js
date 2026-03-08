@@ -18,6 +18,45 @@ export const WebSocketProvider = ({ children }) => {
   const wsRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef(null);
+  const lastTrafficUpdateTsRef = useRef(0);
+  const trafficFlushTimeoutRef = useRef(null);
+  const queuedTrafficUpdateRef = useRef(null);
+
+  const TRAFFIC_UPDATE_MIN_INTERVAL_MS = 180;
+
+  const flushQueuedTrafficUpdate = () => {
+    trafficFlushTimeoutRef.current = null;
+    if (!queuedTrafficUpdateRef.current) {
+      return;
+    }
+    lastTrafficUpdateTsRef.current = Date.now();
+    setData(queuedTrafficUpdateRef.current);
+    queuedTrafficUpdateRef.current = null;
+  };
+
+  const handleIncomingData = (parsedData) => {
+    if (parsedData?.type !== 'traffic_update') {
+      setData(parsedData);
+      return;
+    }
+
+    const now = Date.now();
+    const elapsed = now - lastTrafficUpdateTsRef.current;
+    if (elapsed >= TRAFFIC_UPDATE_MIN_INTERVAL_MS) {
+      lastTrafficUpdateTsRef.current = now;
+      setData(parsedData);
+      return;
+    }
+
+    // Keep only the latest traffic packet and flush soon to avoid UI thrash.
+    queuedTrafficUpdateRef.current = parsedData;
+    if (!trafficFlushTimeoutRef.current) {
+      trafficFlushTimeoutRef.current = setTimeout(
+        flushQueuedTrafficUpdate,
+        TRAFFIC_UPDATE_MIN_INTERVAL_MS - elapsed
+      );
+    }
+  };
 
   const scheduleReconnect = () => {
     if (reconnectTimeoutRef.current) {
@@ -53,7 +92,7 @@ export const WebSocketProvider = ({ children }) => {
       wsRef.current.onmessage = (event) => {
         try {
           const parsedData = JSON.parse(event.data);
-          setData(parsedData);
+          handleIncomingData(parsedData);
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
         }
@@ -86,6 +125,12 @@ export const WebSocketProvider = ({ children }) => {
       wsRef.current.close();
       wsRef.current = null;
     }
+
+    if (trafficFlushTimeoutRef.current) {
+      clearTimeout(trafficFlushTimeoutRef.current);
+      trafficFlushTimeoutRef.current = null;
+    }
+    queuedTrafficUpdateRef.current = null;
     
     setIsConnected(false);
   };

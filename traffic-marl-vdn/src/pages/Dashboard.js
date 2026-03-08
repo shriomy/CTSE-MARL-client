@@ -37,6 +37,8 @@ const Dashboard = () => {
     fixed: 'Fixed Time Controller'
   };
 
+  const isNetworkModeLoading = !!pendingValidationMode;
+
   const validateSwitchIfPending = (serverMode) => {
     if (!pendingValidationMode) {
       return;
@@ -350,21 +352,27 @@ const Dashboard = () => {
               className={`network-mode-btn ${networkMode === 'marl' ? 'active marl' : ''}`}
               onClick={() => handleGlobalModeSwitch('marl')}
               type="button"
+              disabled={isNetworkModeLoading}
             >
+              {pendingValidationMode === 'marl' && <span className="inline-spinner tiny" aria-hidden="true" />}
               MARL
           </button>
             <button
               className={`network-mode-btn ${networkMode === 'manual' ? 'active manual' : ''}`}
               onClick={() => handleGlobalModeSwitch('manual')}
               type="button"
+              disabled={isNetworkModeLoading}
             >
+              {pendingValidationMode === 'manual' && <span className="inline-spinner tiny" aria-hidden="true" />}
               Police
             </button>
             <button
               className={`network-mode-btn ${networkMode === 'fixed' ? 'active fixed' : ''}`}
               onClick={() => handleGlobalModeSwitch('fixed')}
               type="button"
+              disabled={isNetworkModeLoading}
             >
+              {pendingValidationMode === 'fixed' && <span className="inline-spinner tiny" aria-hidden="true" />}
               Fixed
             </button>
           </div>
