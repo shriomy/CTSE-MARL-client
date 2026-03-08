@@ -117,14 +117,14 @@ const JUNCTION_CONFIG = {
     lanes: [
       { 
         id: 'north', 
-        name: 'New Kandy Road', 
+        name: 'kaduwela Road', 
         direction: 'North',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'green'
       },
       { 
         id: 'east', 
-        name: 'Malabe Road', 
+        name: 'New Kandy Road', 
         direction: 'East',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
@@ -138,7 +138,7 @@ const JUNCTION_CONFIG = {
       },
       { 
         id: 'west', 
-        name: 'Kaduwela Road', 
+        name: 'Malabe Road', 
         direction: 'West',
         signals: ['red', 'yellow', 'green'],
         currentSignal: 'red'
@@ -190,15 +190,15 @@ const JunctionControl = () => {
   };
 
   const laneToAction = {
-    west: 0,
-    north: 1,
+    north: 0,
+    west: 1,
     east: 2,
     south: 3
   };
 
   const actionToLane = {
-    0: 'west',
-    1: 'north',
+    0: 'north',
+    1: 'west',
     2: 'east',
     3: 'south'
   };
