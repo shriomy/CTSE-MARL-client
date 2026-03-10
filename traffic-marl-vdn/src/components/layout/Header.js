@@ -20,7 +20,9 @@ const Header = () => {
     switch(path) {
       case '/dashboard': return 'Dashboard';
       case '/map': return 'View Map';
-      case '/junction-control/': return 'Junction Control';
+      case '/junction-control/J1': return 'Junction Control';
+      case '/junction-control/J4': return 'Junction Control';
+      case '/junction-control/J8': return 'Junction Control';
       case '/analytics': return 'System Analytics';
       case '/accidents': return 'Accidents';
       default: return 'Dashboard';

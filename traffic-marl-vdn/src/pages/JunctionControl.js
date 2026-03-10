@@ -266,6 +266,9 @@ const JunctionControl = () => {
     const laneCountsByEdge = junctionMetrics.lane_counts_by_edge && typeof junctionMetrics.lane_counts_by_edge === 'object'
       ? junctionMetrics.lane_counts_by_edge
       : {};
+    const laneMetricsByLaneId = junctionMetrics.lane_metrics && typeof junctionMetrics.lane_metrics === 'object'
+      ? junctionMetrics.lane_metrics
+      : {};
     const signalState = junctionMetrics.signal_state && typeof junctionMetrics.signal_state === 'object'
       ? junctionMetrics.signal_state
       : {};
@@ -316,37 +319,103 @@ const JunctionControl = () => {
       return Number(laneCounts[fallbackIndex] || 0);
     };
 
+    const aggregateLaneMetric = (laneId) => {
+      const edges = laneEdgeMap[laneId] || [];
+      if (!edges.length) {
+        return null;
+      }
+
+      let totalVehicles = 0;
+      let stoppedVehicles = 0;
+      let stoppedWaitSum = 0;
+      let weightedSumAll = 0;
+      let emergencyTotalLane = 0;
+      let speedWeightedSum = 0;
+      let matched = 0;
+
+      Object.entries(laneMetricsByLaneId).forEach(([sumoLaneId, laneMetric]) => {
+        const laneEdge = String(sumoLaneId || '').split('_')[0];
+        if (!edges.includes(laneEdge)) {
+          return;
+        }
+        matched += 1;
+
+        const tv = Number(laneMetric?.total_vehicles || 0);
+        const sv = Number(laneMetric?.stopped_vehicles || 0);
+        const sws = Number(laneMetric?.stopped_wait_sum || 0);
+        const wsa = Number(laneMetric?.weighted_sum_all || 0);
+        const et = Number(laneMetric?.emergency_total || 0);
+        const avs = Number(laneMetric?.avg_speed_hist || 0);
+
+        totalVehicles += tv;
+        stoppedVehicles += sv;
+        stoppedWaitSum += sws;
+        weightedSumAll += wsa;
+        emergencyTotalLane += et;
+        speedWeightedSum += avs * tv;
+      });
+
+      if (!matched) {
+        return null;
+      }
+
+      const avgWaitStopped = stoppedVehicles > 0 ? (stoppedWaitSum / stoppedVehicles) : 0;
+      const vehicleDensityLane = totalVehicles > 0 ? (weightedSumAll / totalVehicles) : 0;
+      const avgSpeedHistLane = totalVehicles > 0 ? (speedWeightedSum / totalVehicles) : 0;
+
+      return {
+        total_vehicles: totalVehicles,
+        stopped_vehicles: stoppedVehicles,
+        avg_wait_stopped: avgWaitStopped,
+        vehicle_density: vehicleDensityLane,
+        avg_speed_hist: avgSpeedHistLane,
+        emergency_total: emergencyTotalLane,
+      };
+    };
+
     setLaneData(prev => {
       const updated = { ...prev };
       const motorLanes = junction.lanes.filter(l => l.id !== 'pedestrian');
 
       motorLanes.forEach((lane, idx) => {
+        const laneMetric = aggregateLaneMetric(lane.id) || {};
         const queue = queueForLane(lane.id, idx);
-        const density = Math.min(1, queue / 20);
+        const exactQueue = Number(laneMetric.total_vehicles);
+        const exactStopped = Number(laneMetric.stopped_vehicles);
+        const exactWait = Number(laneMetric.avg_wait_stopped);
+        const exactDensity = Number(laneMetric.vehicle_density);
+        const exactSpeed = Number(laneMetric.avg_speed_hist);
+        const exactEmergency = Number(laneMetric.emergency_total);
+        const density = Number.isFinite(exactDensity) ? exactDensity : Math.min(1, queue / 20);
         const laneSignal = signalForLane(lane.id);
         updated[lane.id] = {
           ...(updated[lane.id] || {}),
-          queueLength: Math.round(queue),
+          queueLength: Math.round(Number.isFinite(exactQueue) ? exactQueue : queue),
           vehicleDensity: density,
-          vehiclesWaiting: Math.round(queue),
-          avgWaitTime: Number(avgWait.toFixed(1)),
+          vehiclesWaiting: Math.round(Number.isFinite(exactStopped) ? exactStopped : queue),
+          avgWaitTime: Number((Number.isFinite(exactWait) ? exactWait : avgWait).toFixed(1)),
           pedestriansWaiting: Math.round(pedestriansTotal / Math.max(1, motorLanes.length)),
-          emergencyVehicles: emergencyTotal,
+          emergencyVehicles: Math.round(Number.isFinite(exactEmergency) ? exactEmergency : emergencyTotal),
           accidents: accidentsForLane(lane.id),
-          avgSpeed: Number(speed.toFixed(1)),
+          avgSpeed: Number((Number.isFinite(exactSpeed) ? exactSpeed : speed).toFixed(1)),
           ...(laneSignal ? { currentSignal: laneSignal } : {}),
         };
       });
 
       if (junction.lanes.some(l => l.id === 'pedestrian')) {
         const pedEdgeQueue = queueForLane('pedestrian', motorLanes.length);
-        const pedQueue = Math.round(pedEdgeQueue || pedestriansTotal);
+        const pedLaneMetric = laneMetricsByLaneId.pedestrian || {};
+        const pedQueue = Math.round(Number.isFinite(Number(pedLaneMetric.total_vehicles))
+          ? Number(pedLaneMetric.total_vehicles)
+          : (pedEdgeQueue || pedestriansTotal));
         const pedSignal = signalForLane('pedestrian');
         updated.pedestrian = {
           ...(updated.pedestrian || {}),
           queueLength: pedQueue,
           pedestriansWaiting: pedQueue,
-          avgWaitTime: Number(avgWait.toFixed(1)),
+          avgWaitTime: Number((Number.isFinite(Number(pedLaneMetric.avg_wait_stopped))
+            ? Number(pedLaneMetric.avg_wait_stopped)
+            : avgWait).toFixed(1)),
           accidents: accidentsForLane('pedestrian'),
           ...(pedSignal ? { currentSignal: pedSignal } : {}),
         };
@@ -917,7 +986,7 @@ const JunctionControl = () => {
                             <span className="stat-value">{data.pedestriansWaiting || 0}</span>
                           </div>
                           <div className="stat-item">
-                            <span className="stat-label">Emergency</span>
+                            <span className="stat-label">Emergency Vehicles</span>
                             <span className="stat-value emergency">{data.emergencyVehicles || 0}</span>
                           </div>
                         </div>
@@ -945,19 +1014,32 @@ const JunctionControl = () => {
                             <span className="stat-value">{data.pedestriansWaiting || 0}</span>
                           </div>
                           <div className="stat-item">
-                            <span className="stat-label">Queue Length</span>
+                            <span className="stat-label">Avg Wait Time</span>
                             <span className="stat-value">{data.queueLength || 0}</span>
                           </div>
                         </div>
                         
                         <div className="stat-row">
                           <div className="stat-item">
-                            <span className="stat-label">Avg Wait Time</span>
+                            <span className="stat-label">Elderly Pedestrians</span>
                             <span className="stat-value">{data.avgWaitTime || 0}s</span>
                           </div>
                           <div className="stat-item">
-                            <span className="stat-label">Accidents</span>
-                            <span className="stat-value emergency">
+                            <span className="stat-label">Mobility-aided Pedestrians</span>
+                            <span className="stat-value">
+                              {data.accidents || 0}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="stat-row">
+                          <div className="stat-item">
+                            <span className="stat-label">Student Pedestrians</span>
+                            <span className="stat-value">{data.avgWaitTime || 0}s</span>
+                          </div>
+                          <div className="stat-item">
+                            <span className="stat-label">Adult Pedestrians</span>
+                            <span className="stat-value">
                               {data.accidents || 0}
                             </span>
                           </div>

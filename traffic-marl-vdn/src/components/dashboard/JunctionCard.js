@@ -96,7 +96,7 @@ const JunctionCard = ({ junction, data }) => {
           </div>
           
           <div className="stat-item">
-            <div className="stat-label">Emergency</div>
+            <div className="stat-label">Emergency Vehicles</div>
             <div className="stat-value">{emergencyVehicles}</div>
           </div>
           

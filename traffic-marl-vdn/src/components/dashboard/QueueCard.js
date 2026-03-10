@@ -27,8 +27,14 @@ const DIRECTION_LABEL = {
 
 const QueueCard = ({ junction, queueData }) => {
   const lanes = junction.lanes || [];
-  const values = queueData?.values || lanes.map(() => Math.floor(Math.random() * 20));
+  const sourceLanes = Array.isArray(queueData?.lanes) ? queueData.lanes : lanes;
+  const sourceValues = Array.isArray(queueData?.values) ? queueData.values : [];
   const signalByLane = queueData?.signalByLane || {};
+
+  const laneValueMap = {};
+  sourceLanes.forEach((laneId, idx) => {
+    laneValueMap[String(laneId)] = Number(sourceValues[idx] || 0);
+  });
 
   const getLaneDisplayName = (lane) => {
     const laneKey = String(lane || '').toLowerCase();
@@ -62,7 +68,7 @@ const QueueCard = ({ junction, queueData }) => {
 
       <div className="queue-body">
         {lanes.map((lane, index) => {
-          const value = values[index] || 0;
+          const value = Number(laneValueMap[String(lane)] || 0);
           const percentage = Math.min((value / 20) * 100, 100);
           const colorClass = getQueueColor(value);
           
