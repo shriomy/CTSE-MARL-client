@@ -277,8 +277,13 @@ const JunctionControl = () => {
       : {};
     const laneEdgeMap = LANE_EDGE_MAP[junctionId] || {};
     const pedestriansTotal = Number(junctionMetrics.pedestrians || 0);
+    const pedestrianTypes = junctionMetrics.pedestrian_types && typeof junctionMetrics.pedestrian_types === 'object'
+      ? junctionMetrics.pedestrian_types
+      : {};
     const emergencyTotal = Number(junctionMetrics.emergency || 0);
     const avgWait = Number(junctionMetrics.avg_wait_time || 0);
+    const pedestrianAvgWait = Number(junctionMetrics.pedestrian_avg_wait_time || 0);
+    const pedestriansWaitingLive = Number(junctionMetrics.pedestrians_waiting || 0);
     const speed = Number(avgSpeed || 0);
 
     const signalForLane = (laneId) => {
@@ -412,10 +417,16 @@ const JunctionControl = () => {
         updated.pedestrian = {
           ...(updated.pedestrian || {}),
           queueLength: pedQueue,
-          pedestriansWaiting: pedQueue,
+          pedestriansWaiting: Math.round(Number.isFinite(pedestriansWaitingLive) && pedestriansWaitingLive > 0
+            ? pedestriansWaitingLive
+            : pedQueue),
           avgWaitTime: Number((Number.isFinite(Number(pedLaneMetric.avg_wait_stopped))
             ? Number(pedLaneMetric.avg_wait_stopped)
-            : avgWait).toFixed(1)),
+            : (Number.isFinite(pedestrianAvgWait) ? pedestrianAvgWait : avgWait)).toFixed(1)),
+          elderlyPedestrians: Number(pedestrianTypes.elderly || 0),
+          mobilityAidedPedestrians: Number(pedestrianTypes.mobility_aided || 0),
+          studentPedestrians: Number(pedestrianTypes.student || 0),
+          adultPedestrians: Number(pedestrianTypes.adult || 0),
           accidents: accidentsForLane('pedestrian'),
           ...(pedSignal ? { currentSignal: pedSignal } : {}),
         };
@@ -1015,33 +1026,29 @@ const JunctionControl = () => {
                           </div>
                           <div className="stat-item">
                             <span className="stat-label">Avg Wait Time</span>
-                            <span className="stat-value">{data.queueLength || 0}</span>
+                            <span className="stat-value">{data.avgWaitTime || 0}s</span>
                           </div>
                         </div>
                         
                         <div className="stat-row">
                           <div className="stat-item">
                             <span className="stat-label">Elderly Pedestrians</span>
-                            <span className="stat-value">{data.avgWaitTime || 0}s</span>
+                            <span className="stat-value">{data.elderlyPedestrians || 0}</span>
                           </div>
                           <div className="stat-item">
                             <span className="stat-label">Mobility-aided Pedestrians</span>
-                            <span className="stat-value">
-                              {data.accidents || 0}
-                            </span>
+                            <span className="stat-value">{data.mobilityAidedPedestrians || 0}</span>
                           </div>
                         </div>
 
                         <div className="stat-row">
                           <div className="stat-item">
                             <span className="stat-label">Student Pedestrians</span>
-                            <span className="stat-value">{data.avgWaitTime || 0}s</span>
+                            <span className="stat-value">{data.studentPedestrians || 0}</span>
                           </div>
                           <div className="stat-item">
                             <span className="stat-label">Adult Pedestrians</span>
-                            <span className="stat-value">
-                              {data.accidents || 0}
-                            </span>
+                            <span className="stat-value">{data.adultPedestrians || 0}</span>
                           </div>
                         </div>
                       </>
