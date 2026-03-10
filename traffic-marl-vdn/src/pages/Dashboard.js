@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [isSwitchConfirmOpen, setIsSwitchConfirmOpen] = useState(false);
   const [requestedMode, setRequestedMode] = useState('');
   const [pendingValidationMode, setPendingValidationMode] = useState('');
+  const [fixedTimingSeconds, setFixedTimingSeconds] = useState(40);
   const [toast, setToast] = useState({ show: false, message: '' });
   const [summaryData, setSummaryData] = useState({
     accidents: 0,
@@ -57,6 +58,23 @@ const Dashboard = () => {
   };
 
   const isNetworkModeLoading = !!pendingValidationMode;
+
+  const normalizeFixedTiming = (value) => {
+    const parsed = Number(value);
+    return [20, 40, 60].includes(parsed) ? parsed : 40;
+  };
+
+  const extractGlobalFixedTiming = (fixedState) => {
+    if (!fixedState || typeof fixedState !== 'object') {
+      return null;
+    }
+    const first = Object.values(fixedState)[0];
+    if (!first || typeof first !== 'object') {
+      return null;
+    }
+    const candidate = first.vehicle_green_steps ?? first.green_steps;
+    return normalizeFixedTiming(candidate);
+  };
 
   const validateSwitchIfPending = (serverMode) => {
     if (!pendingValidationMode) {
@@ -247,6 +265,13 @@ const Dashboard = () => {
       type: 'set_global_mode',
       mode: requestedMode
     });
+    if (requestedMode === 'fixed') {
+      sendMessage({
+        type: 'set_fixed_timing',
+        junction_id: '*',
+        green_steps: fixedTimingSeconds
+      });
+    }
     setPendingValidationMode(requestedMode);
     setIsSwitchConfirmOpen(false);
     setRequestedMode('');
@@ -255,6 +280,22 @@ const Dashboard = () => {
   const cancelGlobalModeSwitch = () => {
     setIsSwitchConfirmOpen(false);
     setRequestedMode('');
+  };
+
+  const handleGlobalFixedTimingChange = (event) => {
+    const seconds = normalizeFixedTiming(event.target.value);
+    setFixedTimingSeconds(seconds);
+
+    if (!isConnected) {
+      return;
+    }
+
+    sendMessage({
+      type: 'set_fixed_timing',
+      junction_id: '*',
+      green_steps: seconds
+    });
+    setToast({ show: true, message: `Fixed vehicle timing set to ${seconds}s (pedestrians remain 15s).` });
   };
 
   useEffect(() => {
@@ -274,6 +315,10 @@ const Dashboard = () => {
         }
         if (modePayload.junction_modes) {
           updateJunctionModes(modePayload.junction_modes);
+        }
+        const runtimeFixed = extractGlobalFixedTiming(modePayload.fixed_state);
+        if (runtimeFixed) {
+          setFixedTimingSeconds(runtimeFixed);
         }
       }
 
@@ -456,6 +501,21 @@ const Dashboard = () => {
             >
               {pendingValidationMode === 'fixed' && <span className="inline-spinner tiny" aria-hidden="true" />}
               Fixed
+              <span className="network-fixed-inline" onClick={(e) => e.stopPropagation()}>
+                <select
+                  className="network-fixed-select"
+                  value={fixedTimingSeconds}
+                  onChange={handleGlobalFixedTimingChange}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  disabled={!isConnected}
+                  aria-label="Global fixed vehicle timing"
+                >
+                  <option value={60}>60s</option>
+                  <option value={40}>40s</option>
+                  <option value={20}>20s</option>
+                </select>
+              </span>
             </button>
           </div>
           <span className="network-mode-text">{getModeLabel(networkMode)}</span>

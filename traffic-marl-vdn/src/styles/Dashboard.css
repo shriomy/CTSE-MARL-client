@@ -55,6 +55,26 @@
   gap: 6px;
 }
 
+.network-fixed-inline {
+  display: inline-flex;
+  align-items: center;
+}
+
+.network-fixed-select {
+  margin-left: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 1px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.network-mode-btn.active.fixed .network-fixed-select {
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
 .network-mode-btn:hover {
   background: #f4f7fb;
 }

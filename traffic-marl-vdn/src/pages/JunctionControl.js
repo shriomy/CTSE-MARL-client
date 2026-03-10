@@ -172,6 +172,7 @@ const JunctionControl = () => {
   const [isSwitchConfirmOpen, setIsSwitchConfirmOpen] = useState(false);
   const [requestedMode, setRequestedMode] = useState('');
   const [pendingValidationMode, setPendingValidationMode] = useState('');
+  const [fixedTimingSeconds, setFixedTimingSeconds] = useState(40);
   const [pendingManualCommand, setPendingManualCommand] = useState('');
   const [toast, setToast] = useState({ show: false, message: '' });
   const [activeManualCommand, setActiveManualCommand] = useState('');
@@ -210,6 +211,23 @@ const JunctionControl = () => {
     agent: 'MARL Agent',
     police: 'Police Officer',
     fixed: 'Fixed Time Controller'
+  };
+
+  const normalizeFixedTiming = (value) => {
+    const parsed = Number(value);
+    return [20, 40, 60].includes(parsed) ? parsed : 40;
+  };
+
+  const extractJunctionFixedTiming = (fixedState) => {
+    if (!fixedState || typeof fixedState !== 'object') {
+      return null;
+    }
+    const entry = fixedState[junctionId];
+    if (!entry || typeof entry !== 'object') {
+      return null;
+    }
+    const candidate = entry.vehicle_green_steps ?? entry.green_steps;
+    return normalizeFixedTiming(candidate);
   };
 
   const LANE_EDGE_MAP = {
@@ -537,6 +555,10 @@ const JunctionControl = () => {
         setControlMode(SERVER_TO_MODE[serverMode]);
         validateSwitchIfPending(serverMode);
       }
+      const runtimeFixed = extractJunctionFixedTiming(data.data?.fixed_state);
+      if (runtimeFixed) {
+        setFixedTimingSeconds(runtimeFixed);
+      }
     }
 
     if (data.type === 'traffic_update' && data.data?.actions) {
@@ -627,6 +649,13 @@ const JunctionControl = () => {
         junction_id: junctionId,
         mode: MODE_TO_SERVER[requestedMode] || 'marl'
       });
+      if (requestedMode === 'fixed') {
+        sendMessage({
+          type: 'set_fixed_timing',
+          junction_id: junctionId,
+          green_steps: fixedTimingSeconds
+        });
+      }
       setPendingValidationMode(requestedMode);
     } else {
       setToast({ show: true, message: 'Cannot switch environment while backend is offline.' });
@@ -639,6 +668,22 @@ const JunctionControl = () => {
   const cancelModeSwitch = () => {
     setIsSwitchConfirmOpen(false);
     setRequestedMode('');
+  };
+
+  const handleJunctionFixedTimingChange = (event) => {
+    const seconds = normalizeFixedTiming(event.target.value);
+    setFixedTimingSeconds(seconds);
+
+    if (!isConnected) {
+      return;
+    }
+
+    sendMessage({
+      type: 'set_fixed_timing',
+      junction_id: junctionId,
+      green_steps: seconds
+    });
+    setToast({ show: true, message: `Fixed vehicle timing set to ${seconds}s (pedestrians remain 15s).` });
   };
 
   const handlePoliceLaneClick = (commandId, action, activeLaneHint) => {
@@ -892,6 +937,22 @@ const JunctionControl = () => {
                   <span className="switch-icon">⏱️</span>
                   {pendingValidationMode === 'fixed' && <span className="inline-spinner" aria-hidden="true" />}
                   <span className="switch-text">Switch to Fixed Time Control</span>
+                  <span className="mode-fixed-inline" onClick={(e) => e.stopPropagation()}>
+                    <select
+                      className="mode-fixed-select"
+                      value={fixedTimingSeconds}
+                      onChange={handleJunctionFixedTimingChange}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      disabled={!isConnected}
+                      aria-label="Junction fixed vehicle timing"
+                    >
+                      <option value={60}>60s</option>
+                      <option value={40}>40s</option>
+                      <option value={20}>20s</option>
+                    </select>
+                    <span className="mode-fixed-note">Ped: 15s</span>
+                  </span>
                 </button>
               </div>
 
