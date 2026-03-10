@@ -3,27 +3,22 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { 
   FaTrafficLight, 
   FaRoad, 
-  FaCar, 
-  FaClock, 
-  FaExclamationTriangle,
-  FaAmbulance,
-  FaWalking,
-  FaTachometerAlt,
   FaChartLine,
   FaMapMarkedAlt,
   FaChevronDown
 } from 'react-icons/fa';
-import { Line, Pie } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  Filler
 } from 'chart.js';
 import { useWebSocket } from '../services/websocket';
 import '../styles/JunctionControl.css';
@@ -34,10 +29,11 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  Filler
 );
 
 // Junction configuration
@@ -180,6 +176,17 @@ const JunctionControl = () => {
   const [liveUpdatedAt, setLiveUpdatedAt] = useState(0);
   const lastFrameAtRef = useRef(0);
   const [mapError, setMapError] = useState(false);
+
+  // Rolling history for live charts (max 30 data points)
+  const HISTORY_MAX = 30;
+  const [graphHistory, setGraphHistory] = useState({
+    labels: [],
+    queueByLane: {},
+    speedByLane: {},
+    waitByLane: {},
+    pedestrians: [],
+  });
+  const graphTickRef = useRef(0);
 
   const MODE_TO_SERVER = {
     agent: 'marl',
@@ -611,6 +618,36 @@ const JunctionControl = () => {
     }
   }, [data, junctionId, pendingValidationMode, pendingManualCommand]);
 
+  // Push new live data into rolling graph history whenever laneData changes
+  useEffect(() => {
+    const motorLanes = (JUNCTION_CONFIG[junctionId] || JUNCTION_CONFIG['J4'])
+      .lanes.filter(l => l.id !== 'pedestrian');
+    if (!motorLanes.length) return;
+
+    const tick = ++graphTickRef.current;
+    const label = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    setGraphHistory(prev => {
+      const labels = [...prev.labels, label].slice(-HISTORY_MAX);
+
+      const queueByLane = { ...prev.queueByLane };
+      const speedByLane = { ...prev.speedByLane };
+      const waitByLane  = { ...prev.waitByLane };
+
+      motorLanes.forEach(lane => {
+        const d = laneData[lane.id] || {};
+        queueByLane[lane.id] = [...(queueByLane[lane.id] || []), Number(d.queueLength || 0)].slice(-HISTORY_MAX);
+        speedByLane[lane.id] = [...(speedByLane[lane.id] || []), Number(d.avgSpeed || 0)].slice(-HISTORY_MAX);
+        waitByLane[lane.id]  = [...(waitByLane[lane.id]  || []), Number(d.avgWaitTime || 0)].slice(-HISTORY_MAX);
+      });
+
+      const pedD = laneData['pedestrian'] || {};
+      const pedestrians = [...prev.pedestrians, Number(pedD.pedestriansWaiting || 0)].slice(-HISTORY_MAX);
+
+      return { labels, queueByLane, speedByLane, waitByLane, pedestrians };
+    });
+  }, [laneData]);
+
   useEffect(() => {
     setTimeRemaining(18);
   }, [activeGreenLane]);
@@ -775,38 +812,91 @@ const JunctionControl = () => {
   const mapSource = showLiveFeed ? liveFrame : (fallbackMapByJunction[junctionId] || '/Map.png');
   const mapTransform = showLiveFeed ? `scale(${mapFocus.zoom})` : 'scale(1)';
   const mapTransformOrigin = `${mapFocus.x}% ${mapFocus.y}%`;
-  
-  // Chart data for wait time trends
-  const waitTimeChartData = {
-    labels: ['12:00', '12:05', '12:10', '12:15', '12:20', '12:25', '12:30'],
-    datasets: junction.lanes.filter(l => l.id !== 'pedestrian').map((lane, index) => ({
-      label: lane.name,
-      data: [45, 52, 38, 41, 55, 48, 62].map(v => v + (index * 5)),
-      borderColor: index === 0 ? '#FF6B6B' : index === 1 ? '#4ECDC4' : index === 2 ? '#FFD166' : '#06D6A0',
-      backgroundColor: 'transparent',
-      tension: 0.4
-    }))
+
+  const LANE_COLORS = {
+    west:  { border: '#FF6B6B', bg: 'rgba(255,107,107,0.15)' },
+    north: { border: '#4ECDC4', bg: 'rgba(78,205,196,0.15)' },
+    east:  { border: '#FFD166', bg: 'rgba(255,209,102,0.15)' },
+    south: { border: '#06D6A0', bg: 'rgba(6,214,160,0.15)' },
   };
-  
-  // Chart data for traffic distribution
-  const distributionChartData = {
-    labels: junction.lanes.filter(l => l.id !== 'pedestrian').map(l => l.name),
-    datasets: [{
-      data: [35, 25, 20, 20].slice(0, junction.lanes.filter(l => l.id !== 'pedestrian').length),
-      backgroundColor: ['#FF6B6B', '#4ECDC4', '#FFD166', '#06D6A0'],
-      borderWidth: 0
-    }]
-  };
-  
-  const chartOptions = {
+
+  const motorLanes = junction.lanes.filter(l => l.id !== 'pedestrian');
+  const hasPedestrian = junction.lanes.some(l => l.id === 'pedestrian');
+
+  const lineChartBase = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: { duration: 300 },
+    interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: {
-        position: 'bottom',
-        labels: { usePointStyle: true, boxWidth: 8 }
-      }
+      legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, color: '#64748b', font: { size: 11 } } },
+      tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', titleColor: '#f8fafc', bodyColor: '#cbd5e1', padding: 10, cornerRadius: 8 }
+    },
+    scales: {
+      x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 6 } },
+      y: { grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#94a3b8', font: { size: 10 } }, beginAtZero: true }
     }
+  };
+
+  const queueChartData = {
+    labels: graphHistory.labels,
+    datasets: motorLanes.map(lane => ({
+      label: lane.name,
+      data: graphHistory.queueByLane[lane.id] || [],
+      borderColor: (LANE_COLORS[lane.id] || {}).border || '#888',
+      backgroundColor: (LANE_COLORS[lane.id] || {}).bg || 'rgba(136,136,136,0.1)',
+      fill: true,
+      tension: 0.4,
+      pointRadius: 2,
+      borderWidth: 2,
+    }))
+  };
+
+  const speedChartData = {
+    labels: graphHistory.labels,
+    datasets: motorLanes.map(lane => ({
+      label: lane.name,
+      data: graphHistory.speedByLane[lane.id] || [],
+      borderColor: (LANE_COLORS[lane.id] || {}).border || '#888',
+      backgroundColor: (LANE_COLORS[lane.id] || {}).bg || 'rgba(136,136,136,0.1)',
+      fill: false,
+      tension: 0.4,
+      pointRadius: 2,
+      borderWidth: 2,
+    }))
+  };
+
+  const waitChartData = {
+    labels: graphHistory.labels,
+    datasets: motorLanes.map(lane => ({
+      label: lane.name,
+      data: graphHistory.waitByLane[lane.id] || [],
+      borderColor: (LANE_COLORS[lane.id] || {}).border || '#888',
+      backgroundColor: (LANE_COLORS[lane.id] || {}).bg || 'rgba(136,136,136,0.1)',
+      fill: false,
+      tension: 0.4,
+      pointRadius: 2,
+      borderWidth: 2,
+    }))
+  };
+
+  const pedChartData = {
+    labels: graphHistory.labels,
+    datasets: [{
+      label: 'Pedestrians Waiting',
+      data: graphHistory.pedestrians,
+      backgroundColor: 'rgba(155,89,182,0.7)',
+      borderColor: '#9b59b6',
+      borderWidth: 1.5,
+      borderRadius: 4,
+    }]
+  };
+
+  const waitChartOptions = { ...lineChartBase, scales: { ...lineChartBase.scales, y: { ...lineChartBase.scales.y, title: { display: true, text: 'seconds', color: '#94a3b8', font: { size: 10 } } } } };
+  const speedChartOptions = { ...lineChartBase, scales: { ...lineChartBase.scales, y: { ...lineChartBase.scales.y, title: { display: true, text: 'km/h', color: '#94a3b8', font: { size: 10 } } } } };
+  const barChartOptions = {
+    ...lineChartBase,
+    scales: { ...lineChartBase.scales, y: { ...lineChartBase.scales.y, title: { display: true, text: 'count', color: '#94a3b8', font: { size: 10 } } } }
   };
 
   return (
@@ -1121,128 +1211,62 @@ const JunctionControl = () => {
           </div>
         </div>
         
-        {/* SECTION 3: Junction Analytics */}
+        {/* SECTION 3: Junction Analytics – Live Graphs */}
         <div className="junction-analytics-section">
           <h2 className="section-title">
             <FaChartLine /> Junction Analytics
+            <span className="analytics-live-badge">
+              <span className="analytics-live-dot" />
+              LIVE
+            </span>
           </h2>
-          
-          <div className="analytics-grid">
-            {/* Summary Cards */}
-            <div className="summary-cards-row">
-              <div className="summary-card">
-                <div className="summary-icon blue">
-                  <FaCar />
-                </div>
-                <div className="summary-content">
-                  <span className="summary-value">93</span>
-                  <span className="summary-label">TOTAL VEHICLES</span>
-                </div>
+
+          <div className="analytics-graphs-grid">
+            {/* Queue Length */}
+            <div className="live-graph-card">
+              <div className="live-graph-header">
+                <span className="live-graph-title">Queue Length per Lane</span>
+                <span className="live-graph-unit">vehicles</span>
               </div>
-              
-              <div className="summary-card">
-                <div className="summary-icon red">
-                  <FaAmbulance />
-                </div>
-                <div className="summary-content">
-                  <span className="summary-value">1</span>
-                  <span className="summary-label">EMERGENCY VEHICLES</span>
-                </div>
-              </div>
-              
-              <div className="summary-card">
-                <div className="summary-icon orange">
-                  <FaClock />
-                </div>
-                <div className="summary-content">
-                  <span className="summary-value">70</span>
-                  <span className="summary-label">VEHICLES WAITING</span>
-                </div>
-              </div>
-              
-              <div className="summary-card">
-                <div className="summary-icon green">
-                  <FaTachometerAlt />
-                </div>
-                <div className="summary-content">
-                  <span className="summary-value">28.7</span>
-                  <span className="summary-label">AVG SPEED</span>
-                </div>
-              </div>
-              
-              <div className="summary-card">
-                <div className="summary-icon purple">
-                  <FaClock />
-                </div>
-                <div className="summary-content">
-                  <span className="summary-value">44.6s</span>
-                  <span className="summary-label">AVG WAIT TIME</span>
-                </div>
-              </div>
-              
-              <div className="summary-card">
-                <div className="summary-icon yellow">
-                  <FaExclamationTriangle />
-                </div>
-                <div className="summary-content">
-                  <span className="summary-value">1</span>
-                  <span className="summary-label">BLOCKAGES</span>
-                </div>
-              </div>
-              
-              <div className="summary-card">
-                <div className="summary-icon teal">
-                  <FaWalking />
-                </div>
-                <div className="summary-content">
-                  <span className="summary-value">37</span>
-                  <span className="summary-label">PEDESTRIANS</span>
-                </div>
-              </div>
-              
-              <div className="summary-card">
-                <div className="summary-icon marl">
-                  <FaTrafficLight />
-                </div>
-                <div className="summary-content">
-                  <span className="summary-value">8.7</span>
-                  <span className="summary-label">AGENT REWARD</span>
-                </div>
+              <div className="live-graph-body">
+                <Line data={queueChartData} options={lineChartBase} />
               </div>
             </div>
-            
-            {/* Charts Row */}
-            <div className="charts-row">
-              <div className="chart-card">
-                <h4>Wait Time Trends</h4>
-                <div className="chart-container">
-                  <Line data={waitTimeChartData} options={chartOptions} />
-                </div>
-                <div className="chart-legend">
-                  {junction.lanes.filter(l => l.id !== 'pedestrian').map(lane => (
-                    <span key={lane.id} className="legend-item">
-                      <span className={`legend-color ${lane.id}`}></span>
-                      {lane.name}
-                    </span>
-                  ))}
-                </div>
+
+            {/* Avg Speed */}
+            <div className="live-graph-card">
+              <div className="live-graph-header">
+                <span className="live-graph-title">Average Speed per Lane</span>
+                <span className="live-graph-unit">km/h</span>
               </div>
-              
-              <div className="chart-card">
-                <h4>Traffic Distribution by Lane</h4>
-                <div className="chart-container pie-container">
-                  <Pie data={distributionChartData} options={chartOptions} />
-                </div>
-                <div className="chart-legend">
-                  {junction.lanes.filter(l => l.id !== 'pedestrian').map((lane, index) => (
-                    <span key={lane.id} className="legend-item">
-                      <span className={`legend-color ${lane.id}`}></span>
-                      {lane.name}
-                    </span>
-                  ))}
-                </div>
+              <div className="live-graph-body">
+                <Line data={speedChartData} options={speedChartOptions} />
               </div>
             </div>
+
+            {/* Avg Wait Time */}
+            <div className="live-graph-card">
+              <div className="live-graph-header">
+                <span className="live-graph-title">Average Wait Time per Lane</span>
+                <span className="live-graph-unit">seconds</span>
+              </div>
+              <div className="live-graph-body">
+                <Line data={waitChartData} options={waitChartOptions} />
+              </div>
+            </div>
+
+            {/* Pedestrians (only if junction has ped lane) */}
+            {hasPedestrian && (
+              <div className="live-graph-card">
+                <div className="live-graph-header">
+                  <span className="live-graph-title">Pedestrians Waiting</span>
+                  <span className="live-graph-unit">people</span>
+                </div>
+                <div className="live-graph-body">
+                  <Bar data={pedChartData} options={barChartOptions} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

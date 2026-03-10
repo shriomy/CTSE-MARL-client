@@ -606,131 +606,93 @@
 .stat-value.signal-yellow { color: #f39c12; }
 .stat-value.signal-green { color: #2ecc71; }
 
-/* Section 3: Junction Analytics */
+/* Section 3: Junction Analytics – Live Graphs */
 .junction-analytics-section {
   margin-bottom: 40px;
 }
 
-.summary-cards-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.summary-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
+.junction-analytics-section .section-title {
   display: flex;
   align-items: center;
-  gap: 15px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s;
+  gap: 10px;
 }
 
-.summary-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-}
-
-.summary-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
-  display: flex;
+.analytics-live-badge {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: white;
-}
-
-.summary-icon.blue { background: linear-gradient(135deg, #3498db, #2980b9); }
-.summary-icon.red { background: linear-gradient(135deg, #e74c3c, #c0392b); }
-.summary-icon.orange { background: linear-gradient(135deg, #f39c12, #e67e22); }
-.summary-icon.green { background: linear-gradient(135deg, #2ecc71, #27ae60); }
-.summary-icon.purple { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
-.summary-icon.yellow { background: linear-gradient(135deg, #f1c40f, #f39c12); }
-.summary-icon.teal { background: linear-gradient(135deg, #1abc9c, #16a085); }
-.summary-icon.marl { background: linear-gradient(135deg, #4ecdc4, #45b7aa); }
-
-.summary-content {
-  flex: 1;
-}
-
-.summary-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #2c3e50;
-  line-height: 1.2;
-}
-
-.summary-label {
+  gap: 6px;
+  background: rgba(46, 204, 113, 0.12);
+  border: 1px solid rgba(46, 204, 113, 0.4);
+  color: #16a34a;
+  border-radius: 20px;
+  padding: 3px 10px;
   font-size: 11px;
-  color: #7f8c8d;
-  text-transform: uppercase;
+  font-weight: 700;
   letter-spacing: 0.5px;
+  margin-left: 4px;
 }
 
-.charts-row {
+.analytics-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2ecc71;
+  box-shadow: 0 0 6px #2ecc71;
+  animation: pulse-live 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%        { opacity: 0.5; transform: scale(0.75); }
+}
+
+.analytics-graphs-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
 
-.chart-card {
-  background: white;
+.live-graph-card {
+  background: #ffffff;
   border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 20px 22px 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+  border: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: box-shadow 0.25s;
 }
 
-.chart-card h4 {
-  font-size: 16px;
+.live-graph-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.live-graph-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.live-graph-title {
+  font-size: 14px;
   font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 20px;
+  color: #1e293b;
 }
 
-.chart-container {
-  height: 250px;
+.live-graph-unit {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.live-graph-body {
+  height: 220px;
   position: relative;
 }
-
-.pie-container {
-  height: 250px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid #ecf0f1;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #7f8c8d;
-}
-
-.legend-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-}
-
-.legend-color.west { background: #FF6B6B; }
-.legend-color.north { background: #4ECDC4; }
-.legend-color.east { background: #FFD166; }
-.legend-color.south { background: #06D6A0; }
 
 /* Responsive Design */
 @media (max-width: 1200px) {
@@ -738,12 +700,8 @@
     grid-template-columns: 1fr;
   }
   
-  .charts-row {
+  .analytics-graphs-grid {
     grid-template-columns: 1fr;
-  }
-  
-  .summary-cards-row {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -752,7 +710,7 @@
     grid-template-columns: 1fr;
   }
   
-  .summary-cards-row {
+  .analytics-graphs-grid {
     grid-template-columns: 1fr;
   }
   
