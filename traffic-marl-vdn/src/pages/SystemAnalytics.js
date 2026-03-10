@@ -151,6 +151,8 @@ const SystemAnalytics = () => {
               <th>Avg Speed (km/h)</th>
               <th>Emergency Stops</th>
               <th>Green-No-Stopped Events</th>
+              <th>Green-No-Stopped Vehicle Sec</th>
+              <th>Green-No-Stopped Pedestrian Sec</th>
               <th>Throughput Avg (/min)</th>
               <th>Sample Windows</th>
             </tr>
@@ -158,7 +160,7 @@ const SystemAnalytics = () => {
           <tbody>
             {!rows.length && (
               <tr>
-                <td colSpan={9} className="empty-row">
+                <td colSpan={11} className="empty-row">
                   {loading ? 'Loading analytics...' : 'No analytics data for selected filters.'}
                 </td>
               </tr>
@@ -172,6 +174,8 @@ const SystemAnalytics = () => {
                 <td>{formatNum(row.average_speed_vehicle_kmph, 2)}</td>
                 <td>{formatNum(row.emergency_vehicle_stops, 0)}</td>
                 <td>{formatNum(row.green_no_stopped_events, 0)}</td>
+                <td>{formatNum(row.green_no_stopped_vehicle_sec, 1)}</td>
+                <td>{formatNum(row.green_no_stopped_pedestrian_sec, 1)}</td>
                 <td>{formatNum(row.throughput_average_per_min, 2)}</td>
                 <td>{formatNum(row.sample_windows, 0)}</td>
               </tr>
