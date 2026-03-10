@@ -1,0 +1,131 @@
+.system-analytics-page {
+  padding: 10px 0 24px;
+}
+
+.analytics-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 26px;
+  color: #172554;
+}
+
+.analytics-header p {
+  margin: 8px 0 16px;
+  color: #475569;
+}
+
+.analytics-filters {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.analytics-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 210px;
+}
+
+.analytics-filter label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.analytics-filter select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.analytics-meta {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #334155;
+  font-size: 12px;
+}
+
+.analytics-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.analytics-card {
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.analytics-card .label {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.analytics-card .value {
+  display: block;
+  margin-top: 6px;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.analytics-table-wrap {
+  margin-top: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+
+.analytics-table th,
+.analytics-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.analytics-table th {
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.empty-row {
+  text-align: center;
+  color: #64748b;
+  font-style: italic;
+}
+
+@media (max-width: 980px) {
+  .analytics-summary-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
