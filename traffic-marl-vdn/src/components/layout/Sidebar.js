@@ -5,8 +5,7 @@ import {
   FaMapMarkedAlt, 
   FaTrafficLight, 
   FaChartLine,
-  FaWalking,
-  FaAmbulance,
+  FaExclamationTriangle,
   FaTrafficLight as FaTrafficLightIcon
 } from 'react-icons/fa';
 import { useWebSocket } from '../../services/websocket';
@@ -47,8 +46,7 @@ const Sidebar = ({ systemStatus }) => {
     { path: '/map', icon: <FaMapMarkedAlt />, label: 'View Map' },
     { path: '/junction-control', icon: <FaTrafficLight />, label: 'Junction Control' },
     { path: '/analytics', icon: <FaChartLine />, label: 'System Analytics' },
-    { path: '/pedestrians', icon: <FaWalking />, label: 'Pedestrians' },
-    { path: '/emergency', icon: <FaAmbulance />, label: 'Emergency Vehicles' }
+    { path: '/accidents', icon: <FaExclamationTriangle />, label: 'Accidents' }
   ];
 
   return (

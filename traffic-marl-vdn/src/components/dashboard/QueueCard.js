@@ -6,23 +6,23 @@ const LANE_NAME_BY_JUNCTION = {
     east: 'New Kandy Road',
   },
   J1: {
-    west: 'New Kandy Road',
     north: 'Weliwita Road',
     east: 'kaduwela Road',
+    west: 'New Kandy Road',
   },
   J8: {
     north: 'Kaduwela Road',
     east: 'New Kandy Road',
-    south: 'Awissawella Road',
     west: 'Malabe Road',
+    south: 'Awissawella Road',
   },
 };
 
 const DIRECTION_LABEL = {
   north: 'North',
-  east: 'East',
-  south: 'South',
+  east: 'East', 
   west: 'West',
+  south: 'South',
 };
 
 const QueueCard = ({ junction, queueData }) => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, useRef } from 'react';
 import { WS_CONFIG } from '../constants';
 
 const WebSocketContext = createContext(null);
@@ -22,7 +22,7 @@ export const WebSocketProvider = ({ children }) => {
   const trafficFlushTimeoutRef = useRef(null);
   const queuedTrafficUpdateRef = useRef(null);
 
-  const TRAFFIC_UPDATE_MIN_INTERVAL_MS = 180;
+  const TRAFFIC_UPDATE_MIN_INTERVAL_MS = 320;
 
   const flushQueuedTrafficUpdate = () => {
     trafficFlushTimeoutRef.current = null;
@@ -135,13 +135,20 @@ export const WebSocketProvider = ({ children }) => {
     setIsConnected(false);
   };
 
-  const sendMessage = (message) => {
+  const sendMessage = useCallback((message) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     } else {
       console.warn('WebSocket is not connected');
     }
-  };
+  }, []);
+
+  const setFrameStreaming = useCallback((enabled) => {
+    sendMessage({
+      type: 'set_frame_streaming',
+      payload: { enabled: !!enabled }
+    });
+  }, [sendMessage]);
 
   useEffect(() => {
     connect();
@@ -156,6 +163,7 @@ export const WebSocketProvider = ({ children }) => {
     data,
     error,
     sendMessage,
+    setFrameStreaming,
     reconnect: connect,
     disconnect
   };

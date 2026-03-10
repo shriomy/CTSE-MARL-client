@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaMapMarkedAlt, 
@@ -12,12 +12,22 @@ import { useWebSocket } from '../services/websocket';
 import '../styles/MapView.css';
 
 const MapView = () => {
-  const { isConnected, data } = useWebSocket();
+  const { isConnected, data, setFrameStreaming } = useWebSocket();
   const navigate = useNavigate();
   const [zoom, setZoom] = useState(1);
   const [mapError, setMapError] = useState(false);
   const [liveFrame, setLiveFrame] = useState('');
   const [liveUpdatedAt, setLiveUpdatedAt] = useState(0);
+  const lastFrameAtRef = useRef(0);
+
+  useEffect(() => {
+    if (isConnected) {
+      setFrameStreaming(true);
+    }
+    return () => {
+      setFrameStreaming(false);
+    };
+  }, [isConnected, setFrameStreaming]);
   
   const handleZoomIn = () => {
     setZoom(prev => Math.min(prev + 0.2, 2));
@@ -43,8 +53,13 @@ const MapView = () => {
     if (data.type === 'traffic_update') {
       const frame = data.data?.sumo_live_frame;
       if (typeof frame === 'string' && frame.startsWith('data:image/')) {
+        const now = Date.now();
+        if (now - lastFrameAtRef.current < 500) {
+          return;
+        }
         setLiveFrame(frame);
-        setLiveUpdatedAt(Date.now());
+        setLiveUpdatedAt(now);
+        lastFrameAtRef.current = now;
         setMapError(false);
       }
     }

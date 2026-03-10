@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   FaTrafficLight, 
@@ -162,7 +162,7 @@ const JUNCTION_MAP_FOCUS = {
 const JunctionControl = () => {
   const { junctionId } = useParams();
   const navigate = useNavigate();
-  const { data, isConnected, sendMessage } = useWebSocket();
+  const { data, isConnected, sendMessage, setFrameStreaming } = useWebSocket();
   
   const [controlMode, setControlMode] = useState('agent'); // 'agent', 'police', 'fixed'
   const [laneData, setLaneData] = useState({});
@@ -177,6 +177,7 @@ const JunctionControl = () => {
   const [activeManualCommand, setActiveManualCommand] = useState('');
   const [liveFrame, setLiveFrame] = useState('');
   const [liveUpdatedAt, setLiveUpdatedAt] = useState(0);
+  const lastFrameAtRef = useRef(0);
   const [mapError, setMapError] = useState(false);
 
   const MODE_TO_SERVER = {
@@ -193,15 +194,15 @@ const JunctionControl = () => {
 
   const laneToAction = {
     north: 0,
-    west: 1,
     east: 2,
+    west: 1,
     south: 3
   };
 
   const actionToLane = {
     0: 'north',
-    1: 'west',
     2: 'east',
+    1: 'west',
     3: 'south'
   };
 
@@ -218,15 +219,15 @@ const JunctionControl = () => {
       pedestrian: ['J4_c0', 'J4_c1'],
     },
     J1: {
-      west: ['-E3'],
       north: ['-E2'],
       east: ['E00'],
+      west: ['-E3'],
     },
     J8: {
-      north: ['-E5'],
-      east: ['-E4'],
-      south: ['-E8'],
+      north: ['-E4'],
+      east: ['-E5'], 
       west: ['E3'],
+      south: ['-E8'],
     },
   };
 
@@ -268,6 +269,9 @@ const JunctionControl = () => {
     const signalState = junctionMetrics.signal_state && typeof junctionMetrics.signal_state === 'object'
       ? junctionMetrics.signal_state
       : {};
+    const accidentsByEdge = junctionMetrics.accidents_by_edge && typeof junctionMetrics.accidents_by_edge === 'object'
+      ? junctionMetrics.accidents_by_edge
+      : {};
     const laneEdgeMap = LANE_EDGE_MAP[junctionId] || {};
     const pedestriansTotal = Number(junctionMetrics.pedestrians || 0);
     const emergencyTotal = Number(junctionMetrics.emergency || 0);
@@ -294,6 +298,11 @@ const JunctionControl = () => {
         return 'yellow';
       }
       return 'red';
+    };
+
+    const accidentsForLane = (laneId) => {
+      const edges = laneEdgeMap[laneId] || [];
+      return edges.reduce((sum, edgeId) => sum + Number(accidentsByEdge[edgeId] || 0), 0);
     };
 
     const queueForLane = (laneId, fallbackIndex) => {
@@ -323,6 +332,7 @@ const JunctionControl = () => {
           avgWaitTime: Number(avgWait.toFixed(1)),
           pedestriansWaiting: Math.round(pedestriansTotal / Math.max(1, motorLanes.length)),
           emergencyVehicles: emergencyTotal,
+          accidents: accidentsForLane(lane.id),
           avgSpeed: Number(speed.toFixed(1)),
           ...(laneSignal ? { currentSignal: laneSignal } : {}),
         };
@@ -337,6 +347,7 @@ const JunctionControl = () => {
           queueLength: pedQueue,
           pedestriansWaiting: pedQueue,
           avgWaitTime: Number(avgWait.toFixed(1)),
+          accidents: accidentsForLane('pedestrian'),
           ...(pedSignal ? { currentSignal: pedSignal } : {}),
         };
       }
@@ -362,7 +373,8 @@ const JunctionControl = () => {
         pedestriansWaiting: 3,
         emergencyVehicles: 0,
         avgSpeed: 12.5,
-        currentSignal: 'red'
+        currentSignal: 'red',
+        accidents: 0,
       },
       north: {
         queueLength: 4,
@@ -372,7 +384,8 @@ const JunctionControl = () => {
         pedestriansWaiting: 5,
         emergencyVehicles: 1,
         avgSpeed: 28.7,
-        currentSignal: 'green'
+        currentSignal: 'green',
+        accidents: 0,
       },
       east: {
         queueLength: 18,
@@ -382,7 +395,8 @@ const JunctionControl = () => {
         pedestriansWaiting: 2,
         emergencyVehicles: 0,
         avgSpeed: 5.2,
-        currentSignal: 'red'
+        currentSignal: 'red',
+        accidents: 0,
       },
       south: {
         queueLength: 9,
@@ -392,13 +406,15 @@ const JunctionControl = () => {
         pedestriansWaiting: 4,
         emergencyVehicles: 0,
         avgSpeed: 18.3,
-        currentSignal: 'red'
+        currentSignal: 'red',
+        accidents: 0,
       },
       pedestrian: {
         queueLength: 12,
         pedestriansWaiting: 12,
         avgWaitTime: 25.4,
-        currentSignal: 'red'
+        currentSignal: 'red',
+        accidents: 0,
       }
     };
     
@@ -420,6 +436,15 @@ const JunctionControl = () => {
     }
     sendMessage({ type: 'get_runtime_state' });
   }, [isConnected, junctionId, sendMessage]);
+
+  useEffect(() => {
+    if (isConnected) {
+      setFrameStreaming(true);
+    }
+    return () => {
+      setFrameStreaming(false);
+    };
+  }, [isConnected, setFrameStreaming]);
 
   useEffect(() => {
     if (!data || typeof data !== 'object') {
@@ -449,8 +474,13 @@ const JunctionControl = () => {
 
       const frame = data.data?.sumo_live_frame;
       if (typeof frame === 'string' && frame.startsWith('data:image/')) {
+        const now = Date.now();
+        if (now - lastFrameAtRef.current < 500) {
+          return;
+        }
         setLiveFrame(frame);
-        setLiveUpdatedAt(Date.now());
+        setLiveUpdatedAt(now);
+        lastFrameAtRef.current = now;
         setMapError(false);
       }
 
@@ -898,9 +928,9 @@ const JunctionControl = () => {
                             <span className="stat-value">{data.avgSpeed || 0} km/h</span>
                           </div>
                           <div className="stat-item">
-                            <span className="stat-label">Signal</span>
-                            <span className={`stat-value signal-${data.currentSignal || 'red'}`}>
-                              {data.currentSignal?.toUpperCase() || 'RED'}
+                            <span className="stat-label">Accidents</span>
+                            <span className="stat-value emergency">
+                              {data.accidents || 0}
                             </span>
                           </div>
                         </div>
@@ -926,9 +956,9 @@ const JunctionControl = () => {
                             <span className="stat-value">{data.avgWaitTime || 0}s</span>
                           </div>
                           <div className="stat-item">
-                            <span className="stat-label">Signal</span>
-                            <span className={`stat-value signal-${data.currentSignal || 'red'}`}>
-                              {data.currentSignal?.toUpperCase() || 'RED'}
+                            <span className="stat-label">Accidents</span>
+                            <span className="stat-value emergency">
+                              {data.accidents || 0}
                             </span>
                           </div>
                         </div>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './styles/App.css';
 
 // Layout Components
@@ -11,36 +11,147 @@ import Dashboard from './pages/Dashboard';
 import MapView from './pages/MapView';
 import JunctionControl from './pages/JunctionControl';
 import SystemAnalytics from './pages/SystemAnalytics';
-import Pedestrians from './pages/Pedestrians';
-import EmergencyVehicles from './pages/EmergencyVehicles';
+import Accidents from './pages/Accidents';
 
 // Services
-import { WebSocketProvider } from './services/websocket';
+import { WebSocketProvider, useWebSocket } from './services/websocket';
 
-function App() {
-  const [systemStatus, setSystemStatus] = useState('inactive');
+let accidentAudio = null;
+
+const playAlertSound = () => {
+  try {
+    if (!accidentAudio) {
+      accidentAudio = new Audio('/accident.mp3');
+      accidentAudio.preload = 'auto';
+      accidentAudio.volume = 1.0;
+    }
+
+    accidentAudio.currentTime = 0;
+    const playPromise = accidentAudio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch((e) => {
+        // Autoplay can be blocked until the user interacts with the page.
+        console.warn('Alert sound playback blocked or failed', e);
+      });
+    }
+  } catch (e) {
+    console.warn('Alert sound unavailable', e);
+  }
+};
+
+const GlobalAccidentAlert = () => {
+  const navigate = useNavigate();
+  const { data } = useWebSocket();
+  const [activeAlert, setActiveAlert] = useState(null);
+  const pendingQueueRef = useRef([]);
+  const seenRef = useRef(new Set());
+
+  useEffect(() => {
+    if (!data || data.type !== 'traffic_update') {
+      return;
+    }
+
+    const liveAccidents = Array.isArray(data.data?.accidents?.active)
+      ? data.data.accidents.active
+      : [];
+
+    const fresh = [];
+    liveAccidents.forEach((accident) => {
+      const id = String(accident?.id || '');
+      if (!id || seenRef.current.has(id)) {
+        return;
+      }
+      seenRef.current.add(id);
+      fresh.push(accident);
+    });
+
+    if (fresh.length) {
+      pendingQueueRef.current = [...pendingQueueRef.current, ...fresh];
+      if (!activeAlert) {
+        const [first, ...rest] = pendingQueueRef.current;
+        pendingQueueRef.current = rest;
+        setActiveAlert(first);
+      }
+      playAlertSound();
+    }
+  }, [data, activeAlert]);
+
+  const closeAlert = () => {
+    if (pendingQueueRef.current.length) {
+      const [next, ...rest] = pendingQueueRef.current;
+      pendingQueueRef.current = rest;
+      setActiveAlert(next);
+      return;
+    }
+    setActiveAlert(null);
+  };
+
+  const goToJunction = () => {
+    const target = activeAlert?.junction_id ? `/junction-control/${activeAlert.junction_id}` : '/junction-control/J4';
+    closeAlert();
+    navigate(target);
+  };
+
+  if (!activeAlert) {
+    return null;
+  }
 
   return (
-    <WebSocketProvider>
-      <Router>
-        <div className="app">
-          <Sidebar systemStatus={systemStatus} />
-          <div className="main-content">
-            <Header />
-            <div className="page-content">
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/map" element={<MapView />} />
-                <Route path="/junction-control/:junctionId?" element={<JunctionControl />} />
-                <Route path="/analytics" element={<SystemAnalytics />} />
-                <Route path="/pedestrians" element={<Pedestrians />} />
-                <Route path="/emergency" element={<EmergencyVehicles />} />
-              </Routes>
-            </div>
+    <div className="accident-alert-backdrop" role="dialog" aria-modal="true">
+      <div className="accident-alert-modal">
+        <div className="accident-alert-badge">LIVE ALERT</div>
+        <h3>Accident has occured</h3>
+        <p className="accident-alert-subtitle">Need immediate action.</p>
+        <div className="accident-alert-body">
+          <p>
+            <strong>{activeAlert.junction_name || 'Unknown Junction'}</strong> | <strong>{activeAlert.lane_name || 'Unknown lane'}</strong>
+          </p>
+          <p>Camera: {activeAlert.camera || 'N/A'}</p>
+          <p>Entry point: {activeAlert.entryPoint || 'N/A'}</p>
+          <p>Confidence: {Number(activeAlert.confidence || 0).toFixed(3)}</p>
+          <p>Time: {activeAlert.timestamp ? new Date(activeAlert.timestamp).toLocaleString() : 'N/A'}</p>
+        </div>
+        <div className="accident-alert-actions">
+          <button type="button" className="alert-dismiss-btn" onClick={closeAlert}>Dismiss</button>
+          <button type="button" className="alert-proceed-btn" onClick={goToJunction}>
+            Please proceed to monitor the junction
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AppShell = () => {
+  const [systemStatus] = useState('inactive');
+
+  return (
+    <Router>
+      <div className="app">
+        <Sidebar systemStatus={systemStatus} />
+        <div className="main-content">
+          <Header />
+          <div className="page-content">
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/map" element={<MapView />} />
+              <Route path="/junction-control/:junctionId?" element={<JunctionControl />} />
+              <Route path="/analytics" element={<SystemAnalytics />} />
+              <Route path="/accidents" element={<Accidents />} />
+            </Routes>
           </div>
         </div>
-      </Router>
+        <GlobalAccidentAlert />
+      </div>
+    </Router>
+  );
+};
+
+function App() {
+  return (
+    <WebSocketProvider>
+      <AppShell />
     </WebSocketProvider>
   );
 }

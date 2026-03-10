@@ -24,6 +24,25 @@ const Dashboard = () => {
     trafficLevel: 'low'
   });
 
+  const LANE_EDGE_MAP = {
+    J4: {
+      west: ['-E0'],
+      east: ['E0'],
+      pedestrian: ['J4_c0', 'J4_c1'],
+    },
+    J1: {
+      north: ['-E2'],
+      east: ['E00'],
+      west: ['-E3'],  
+    },
+    J8: {
+      north: ['-E4'],
+      east: ['-E5'],
+      west: ['E3'],
+      south: ['-E8'],
+    },
+  };
+
   const getModeLabel = (mode) => {
     if (mode === 'manual') return 'Police Officer';
     if (mode === 'fixed') return 'Fixed Time';
@@ -82,6 +101,7 @@ const Dashboard = () => {
         const wait = Number(metrics?.avg_wait_time || 0);
         const ped = Number(metrics?.pedestrians || 0);
         const emergency = Number(metrics?.emergency || 0);
+        const accidents = Number(metrics?.accidents || 0);
 
         next[junctionId] = {
           ...(next[junctionId] || {}),
@@ -90,7 +110,7 @@ const Dashboard = () => {
           avgWaitTime: Number(wait.toFixed(1)),
           pedestrians: ped,
           emergencyVehicles: emergency,
-          accidents: 0,
+          accidents,
           trafficLevel: queueToTrafficLevel(queue),
           avgSpeed: typeof avgSpeed === 'number' ? avgSpeed : (next[junctionId]?.avgSpeed || 0),
         };
@@ -101,13 +121,23 @@ const Dashboard = () => {
     setQueueData(prev => {
       const next = { ...prev };
       JUNCTIONS.forEach(j => {
-        const laneCount = j.lanes.length;
-        const laneValues = Array.isArray(junctionLive[j.id]?.lane_counts)
-          ? junctionLive[j.id].lane_counts.slice(0, laneCount)
-          : [];
-        while (laneValues.length < laneCount) {
-          laneValues.push(0);
-        }
+        const metrics = junctionLive[j.id] || {};
+        const laneCountsByEdge = metrics.lane_counts_by_edge && typeof metrics.lane_counts_by_edge === 'object'
+          ? metrics.lane_counts_by_edge
+          : {};
+        const fallbackLaneCounts = Array.isArray(metrics.lane_counts) ? metrics.lane_counts : [];
+        const edgeMap = LANE_EDGE_MAP[j.id] || {};
+
+        const laneValues = j.lanes.map((laneId, idx) => {
+          const edges = edgeMap[laneId] || [];
+          if (edges.length) {
+            const edgeSum = edges.reduce((sum, edgeId) => sum + Number(laneCountsByEdge[edgeId] || 0), 0);
+            if (edgeSum > 0 || edges.some((edgeId) => Object.prototype.hasOwnProperty.call(laneCountsByEdge, edgeId))) {
+              return Math.round(edgeSum);
+            }
+          }
+          return Math.round(Number(fallbackLaneCounts[idx] || 0));
+        });
 
         next[j.id] = {
           lanes: [...j.lanes],
@@ -135,11 +165,39 @@ const Dashboard = () => {
     }));
   };
 
-  const buildSignalByLane = (junctionId, action, stepMeta, lanes) => {
+  const buildSignalByLane = (junctionId, action, stepMeta, lanes, junctionMetrics) => {
     const out = {};
     lanes.forEach(l => {
       out[l] = 'red';
     });
+
+    // Prefer backend live state (same source used by JunctionControl).
+    const signalState = junctionMetrics?.signal_state && typeof junctionMetrics.signal_state === 'object'
+      ? junctionMetrics.signal_state
+      : null;
+    const laneEdgeMap = LANE_EDGE_MAP[junctionId] || {};
+    if (signalState && Object.keys(signalState).length > 0) {
+      lanes.forEach((laneId) => {
+        const edges = laneEdgeMap[laneId] || [];
+        if (!edges.length) {
+          return;
+        }
+        const states = edges
+          .map((edgeId) => String(signalState[edgeId] || '').toLowerCase())
+          .filter(Boolean);
+        if (!states.length) {
+          return;
+        }
+        if (states.includes('green')) {
+          out[laneId] = 'green';
+        } else if (states.includes('yellow')) {
+          out[laneId] = 'yellow';
+        } else {
+          out[laneId] = 'red';
+        }
+      });
+      return out;
+    }
 
     const isYellow = Number(stepMeta?.is_yellow || 0) > 0.5;
     const isPedGreen = Number(stepMeta?.is_ped_green || 0) > 0.5;
@@ -160,7 +218,7 @@ const Dashboard = () => {
       return out;
     }
 
-    const actionLane = { 0: 'west', 1: 'north', 2: 'east', 3: 'south' }[Number(action)];
+    const actionLane = { 0: 'north', 2: 'east', 1: 'west',  3: 'south' }[Number(action)];
     if (actionLane && out[actionLane] !== undefined) {
       out[actionLane] = 'green';
     }
@@ -235,9 +293,33 @@ const Dashboard = () => {
               const existing = next[j.id] || { lanes: [...j.lanes], values: Array(j.lanes.length).fill(0) };
               const action = packet.actions?.[j.id];
               const stepMeta = packet.step_meta?.[j.id] || {};
+              const junctionMetrics = packet.junction_live?.[j.id] || {};
               next[j.id] = {
                 ...existing,
-                signalByLane: buildSignalByLane(j.id, action, stepMeta, j.lanes),
+                signalByLane: buildSignalByLane(j.id, action, stepMeta, j.lanes, junctionMetrics),
+              };
+            });
+            return next;
+          });
+        }
+
+        if (packet.accidents) {
+          const totalAccidents = Number(packet.accidents.count || 0);
+          const byJunction = packet.accidents.by_junction && typeof packet.accidents.by_junction === 'object'
+            ? packet.accidents.by_junction
+            : {};
+
+          setSummaryData(prev => ({
+            ...prev,
+            accidents: Math.max(0, Math.round(totalAccidents)),
+          }));
+
+          setJunctionData(prev => {
+            const next = { ...prev };
+            Object.entries(byJunction).forEach(([junctionId, count]) => {
+              next[junctionId] = {
+                ...(next[junctionId] || {}),
+                accidents: Number(count || 0),
               };
             });
             return next;

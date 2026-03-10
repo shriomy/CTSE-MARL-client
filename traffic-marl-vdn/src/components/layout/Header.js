@@ -22,8 +22,7 @@ const Header = () => {
       case '/map': return 'View Map';
       case '/junction-control/': return 'Junction Control';
       case '/analytics': return 'System Analytics';
-      case '/pedestrians': return 'Pedestrian Monitoring';
-      case '/emergency': return 'Emergency Vehicle Tracking';
+      case '/accidents': return 'Accidents';
       default: return 'Dashboard';
     }
   };

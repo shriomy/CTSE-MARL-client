@@ -119,3 +119,95 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.accident-alert-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(39, 3, 3, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  animation: alertFadeIn 0.22s ease;
+}
+
+.accident-alert-modal {
+  width: min(560px, 94vw);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fff5f5 0%, #ffffff 100%);
+  border: 1px solid #fca5a5;
+  box-shadow: 0 22px 40px rgba(127, 17, 17, 0.35);
+  padding: 18px;
+}
+
+.accident-alert-badge {
+  display: inline-block;
+  border-radius: 999px;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  margin-bottom: 10px;
+}
+
+.accident-alert-modal h3 {
+  margin: 0;
+  font-size: 26px;
+  color: #7f1111;
+}
+
+.accident-alert-subtitle {
+  margin: 4px 0 10px 0;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.accident-alert-body {
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #fecaca;
+}
+
+.accident-alert-body p {
+  margin: 5px 0;
+  color: #374151;
+  font-size: 14px;
+}
+
+.accident-alert-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.alert-dismiss-btn,
+.alert-proceed-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.alert-dismiss-btn {
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+
+.alert-proceed-btn {
+  color: #fff;
+  background: #b91c1c;
+}
+
+@keyframes alertFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
