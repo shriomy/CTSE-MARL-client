@@ -33,8 +33,8 @@ const Dashboard = () => {
     },
     J1: {
       north: ['-E2'],
-      east: ['E00'],
-      west: ['-E3'],  
+      east: ['-E3'],
+      west: ['E00'],  
     },
     J8: {
       north: ['-E4'],
