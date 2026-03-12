@@ -45,6 +45,48 @@ const GlobalAccidentAlert = () => {
   const [activeAlert, setActiveAlert] = useState(null);
   const pendingQueueRef = useRef([]);
   const seenRef = useRef(new Set());
+  const suppressedRef = useRef(new Set());
+
+  const popNextAlert = () => {
+    if (pendingQueueRef.current.length) {
+      const [next, ...rest] = pendingQueueRef.current;
+      pendingQueueRef.current = rest;
+      setActiveAlert(next);
+      return;
+    }
+    setActiveAlert(null);
+  };
+
+  useEffect(() => {
+    const onResolved = (event) => {
+      const resolvedId = String(event?.detail?.id || '');
+      if (!resolvedId) {
+        return;
+      }
+
+      suppressedRef.current.add(resolvedId);
+      pendingQueueRef.current = pendingQueueRef.current.filter(
+        (item) => String(item?.id || '') !== resolvedId
+      );
+
+      setActiveAlert((prev) => {
+        if (String(prev?.id || '') !== resolvedId) {
+          return prev;
+        }
+        if (pendingQueueRef.current.length) {
+          const [next, ...rest] = pendingQueueRef.current;
+          pendingQueueRef.current = rest;
+          return next;
+        }
+        return null;
+      });
+    };
+
+    window.addEventListener('accident-resolved-local', onResolved);
+    return () => {
+      window.removeEventListener('accident-resolved-local', onResolved);
+    };
+  }, []);
 
   useEffect(() => {
     if (!data || data.type !== 'traffic_update') {
@@ -52,8 +94,21 @@ const GlobalAccidentAlert = () => {
     }
 
     const liveAccidents = Array.isArray(data.data?.accidents?.active)
-      ? data.data.accidents.active
+      ? data.data.accidents.active.filter((accident) => {
+          const id = String(accident?.id || '');
+          return id && !suppressedRef.current.has(id);
+        })
       : [];
+
+    const liveIdSet = new Set(liveAccidents.map((accident) => String(accident?.id || '')).filter(Boolean));
+
+    pendingQueueRef.current = pendingQueueRef.current.filter((accident) =>
+      liveIdSet.has(String(accident?.id || ''))
+    );
+
+    if (activeAlert && !liveIdSet.has(String(activeAlert?.id || ''))) {
+      popNextAlert();
+    }
 
     const fresh = [];
     liveAccidents.forEach((accident) => {
@@ -76,19 +131,9 @@ const GlobalAccidentAlert = () => {
     }
   }, [data, activeAlert]);
 
-  const closeAlert = () => {
-    if (pendingQueueRef.current.length) {
-      const [next, ...rest] = pendingQueueRef.current;
-      pendingQueueRef.current = rest;
-      setActiveAlert(next);
-      return;
-    }
-    setActiveAlert(null);
-  };
-
   const goToJunction = () => {
     const target = activeAlert?.junction_id ? `/junction-control/${activeAlert.junction_id}` : '/junction-control/J4';
-    closeAlert();
+    popNextAlert();
     navigate(target);
   };
 
@@ -112,7 +157,6 @@ const GlobalAccidentAlert = () => {
           <p>Time: {activeAlert.timestamp ? new Date(activeAlert.timestamp).toLocaleString() : 'N/A'}</p>
         </div>
         <div className="accident-alert-actions">
-          <button type="button" className="alert-dismiss-btn" onClick={closeAlert}>Dismiss</button>
           <button type="button" className="alert-proceed-btn" onClick={goToJunction}>
             Please proceed to monitor the junction
           </button>

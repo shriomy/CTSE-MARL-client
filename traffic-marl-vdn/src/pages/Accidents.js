@@ -37,7 +37,7 @@ const Accidents = () => {
   const [liveUpdatedAt, setLiveUpdatedAt] = useState(0);
   const lastFrameAtRef = useRef(0);
   const [globalMode, setGlobalMode] = useState('mixed');
-  const [pendingResolve, setPendingResolve] = useState({});
+  const locallyResolvedRef = useRef(new Set());
 
   useEffect(() => {
     if (!isConnected) {
@@ -67,7 +67,11 @@ const Accidents = () => {
     if (data.type === 'traffic_update') {
       const packet = data.data || {};
       const active = Array.isArray(packet.accidents?.active) ? packet.accidents.active : [];
-      setActiveAccidents(active);
+      const filteredActive = active.filter((item) => {
+        const id = String(item?.id || '');
+        return id && !locallyResolvedRef.current.has(id);
+      });
+      setActiveAccidents(filteredActive);
 
       if (packet.modes) {
         setGlobalMode(resolveGlobalMode(packet.modes));
@@ -84,15 +88,6 @@ const Accidents = () => {
         lastFrameAtRef.current = now;
       }
 
-      setPendingResolve((prev) => {
-        const next = { ...prev };
-        Object.keys(next).forEach((id) => {
-          if (!active.some((item) => String(item.id) === id)) {
-            delete next[id];
-          }
-        });
-        return next;
-      });
     }
   }, [data]);
 
@@ -107,7 +102,15 @@ const Accidents = () => {
     if (!id) {
       return;
     }
-    setPendingResolve((prev) => ({ ...prev, [id]: true }));
+
+    locallyResolvedRef.current.add(id);
+
+    setActiveAccidents((prev) => prev.filter((item) => String(item?.id || '') !== id));
+
+    window.dispatchEvent(new CustomEvent('accident-resolved-local', {
+      detail: { id },
+    }));
+
     sendMessage({
       type: 'resolve_accident',
       payload: { accident_id: id },
@@ -202,9 +205,8 @@ const Accidents = () => {
                 type="button"
                 className="resolve-btn"
                 onClick={() => handleResolveAccident(id)}
-                disabled={!!pendingResolve[id]}
               >
-                {pendingResolve[id] ? 'Updating...' : 'Subside the accident, it is controlled'}
+                Subside the accident, it is controlled
               </button>
             </div>
           </div>
